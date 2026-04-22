@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import Fixture from '../fixture/page'; // Reutilizamos el componente que ya armamos
 import { Menu, X, Trophy, Table, Calculator, LogOut } from 'lucide-react'; 
+import Simulador from '../simulador/page';
 
 export default function Dashboard() {
   const [menuAbierto, setMenuAbierto] = useState(false);

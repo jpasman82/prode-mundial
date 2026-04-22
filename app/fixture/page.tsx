@@ -1,17 +1,12 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import Link from 'next/link';
 import { ChevronDown, ChevronUp, MapPin } from 'lucide-react';
 
 export default function Fixture() {
   const [partidos, setPartidos] = useState<any[]>([]);
   const [equipos, setEquipos] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  
-  const [predicciones, setPredicciones] = useState<Record<string, { a: string, b: string }>>({});
-  const [guardandoPartido, setGuardandoPartido] = useState<string | null>(null);
   const [partidoExpandido, setPartidoExpandido] = useState<string | null>(null);
 
   const [vistaActiva, setVistaActiva] = useState<'grupos' | 'eliminatorias'>('grupos');
@@ -34,10 +29,6 @@ export default function Fixture() {
 
   useEffect(() => {
     const inicializar = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      setUserId(session.user.id);
-
       const { data: equiposData } = await supabase.from('equipos').select('*').order('nombre');
       if (equiposData) setEquipos(equiposData);
 
@@ -52,19 +43,6 @@ export default function Fixture() {
         .order('fecha_hora', { ascending: true });
 
       if (partidosData) setPartidos(partidosData);
-
-      const { data: misPronosticos } = await supabase
-        .from('pronosticos')
-        .select('*')
-        .eq('usuario_id', session.user.id);
-
-      if (misPronosticos) {
-        const preds: Record<string, { a: string, b: string }> = {};
-        misPronosticos.forEach((p) => {
-          preds[p.partido_id] = { a: p.prediccion_goles_a.toString(), b: p.prediccion_goles_b.toString() };
-        });
-        setPredicciones(preds);
-      }
       setCargando(false);
     };
     inicializar();
@@ -105,35 +83,6 @@ export default function Fixture() {
     setPartidoExpandido(partidoExpandido === id ? null : id);
   };
 
-  const handleCambio = (partidoId: string, equipo: 'a' | 'b', valor: string) => {
-    setPredicciones((prev) => ({
-      ...prev,
-      [partidoId]: { ...prev[partidoId], [equipo]: valor }
-    }));
-  };
-
-  const guardarPronostico = async (partidoId: string) => {
-    if (!userId) return;
-    const pred = predicciones[partidoId];
-    if (!pred || pred.a === '' || pred.b === '') return alert('¡Completá ambos resultados!');
-
-    setGuardandoPartido(partidoId);
-    try {
-      const { data: existe } = await supabase.from('pronosticos').select('id').eq('usuario_id', userId).eq('partido_id', partidoId).maybeSingle();
-      if (existe) {
-        await supabase.from('pronosticos').update({ prediccion_goles_a: parseInt(pred.a), prediccion_goles_b: parseInt(pred.b) }).eq('id', existe.id);
-      } else {
-        await supabase.from('pronosticos').insert([{ usuario_id: userId, partido_id: partidoId, prediccion_goles_a: parseInt(pred.a), prediccion_goles_b: parseInt(pred.b) }]);
-      }
-      alert('¡Pronóstico guardado! ✅');
-      setPartidoExpandido(null);
-    } catch (e) {
-      alert('Error al guardar');
-    } finally {
-      setGuardandoPartido(null);
-    }
-  };
-
   const calcularTablaPosiciones = (grupo: string) => {
     const stats: Record<string, any> = {};
     equipos.filter(eq => eq.grupo === grupo).forEach(eq => {
@@ -165,12 +114,15 @@ export default function Fixture() {
 
   const renderizarFilaPartido = (partido: any) => {
     const esExpandido = partidoExpandido === partido.id;
-    const pred = predicciones[partido.id] || { a: '', b: '' };
     const equiposOk = partido.equipo_a && partido.equipo_b;
     
     const fechaObj = new Date(partido.fecha_hora);
     const hora = fechaObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
     const fecha = fechaObj.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+    // Mostramos goles oficiales (si el partido está finalizado) o un guión si está pendiente
+    const mostrarGolesA = partido.estado === 'Finalizado' && partido.goles_a !== null ? partido.goles_a : '-';
+    const mostrarGolesB = partido.estado === 'Finalizado' && partido.goles_b !== null ? partido.goles_b : '-';
 
     return (
       <div key={partido.id} className="mb-3 overflow-hidden bg-white border border-gray-300 rounded-xl shadow-sm">
@@ -195,8 +147,11 @@ export default function Fixture() {
               <span className="text-2xl flex-shrink-0">{partido.equipo_a?.bandera_url || '🛡️'}</span>
             </div>
             
-            <div className="px-2">
-              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-full">VS</span>
+            {/* VISTA DE SOLO LECTURA: Goles Reales */}
+            <div className="px-3">
+              <span className={`text-lg font-black bg-gray-100 px-3 py-1 rounded-lg border border-gray-200 ${partido.estado === 'Finalizado' ? 'text-blue-900' : 'text-gray-400'}`}>
+                {mostrarGolesA} - {mostrarGolesB}
+              </span>
             </div>
             
             <div className="flex items-center justify-start flex-1 gap-2 min-w-0">
@@ -209,7 +164,7 @@ export default function Fixture() {
         </div>
 
         {esExpandido && (
-          <div className="p-4 border-t bg-gray-50 border-gray-200">
+          <div className="p-4 border-t bg-gray-50 border-gray-200 text-center">
             <div className="flex items-start justify-between w-full mb-4 px-2">
               <div className="flex-1 text-center pr-2">
                 <span className="text-sm font-bold text-blue-900 leading-snug break-words">
@@ -224,32 +179,14 @@ export default function Fixture() {
             </div>
 
             {partido.estadio && (
-              <div className="flex justify-center items-center gap-1 mb-4 text-xs font-bold text-gray-600">
+              <div className="flex justify-center items-center gap-1 text-xs font-bold text-gray-600 mb-2">
                 <MapPin size={14} /> {partido.estadio}, {partido.ciudad}
               </div>
             )}
             
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <input 
-                type="number" value={pred.a} onChange={(e) => handleCambio(partido.id, 'a', e.target.value)}
-                disabled={!equiposOk}
-                className="w-16 h-14 text-2xl font-bold text-center bg-white border-2 border-gray-400 rounded-lg outline-none focus:border-blue-600 text-gray-900 disabled:bg-gray-200"
-              />
-              <span className="text-xl font-bold text-gray-500">-</span>
-              <input 
-                type="number" value={pred.b} onChange={(e) => handleCambio(partido.id, 'b', e.target.value)}
-                disabled={!equiposOk}
-                className="w-16 h-14 text-2xl font-bold text-center bg-white border-2 border-gray-400 rounded-lg outline-none focus:border-blue-600 text-gray-900 disabled:bg-gray-200"
-              />
+            <div className="text-xs font-bold uppercase tracking-wider text-gray-500 mt-2">
+              Estado: <span className={partido.estado === 'Finalizado' ? 'text-green-600' : 'text-orange-500'}>{partido.estado}</span>
             </div>
-
-            <button 
-              onClick={() => guardarPronostico(partido.id)}
-              disabled={!equiposOk || guardandoPartido === partido.id}
-              className="w-full py-3 font-bold text-white transition bg-green-600 rounded-lg active:scale-95 disabled:bg-gray-400"
-            >
-              {guardandoPartido === partido.id ? 'Guardando...' : equiposOk ? 'Guardar Pronóstico' : 'Esperando rivales'}
-            </button>
           </div>
         )}
       </div>
@@ -308,7 +245,7 @@ export default function Fixture() {
         onTouchEnd={onTouchEnd}
       >
         {cargando ? (
-          <p className="mt-10 font-bold text-center text-gray-700">Cargando partidos...</p>
+          <p className="mt-10 font-bold text-center text-gray-700">Cargando datos oficiales...</p>
         ) : (
           <>
             {vistaActiva === 'grupos' && (

@@ -16,12 +16,21 @@ export default function Fixture() {
 
   const [vistaActiva, setVistaActiva] = useState<'grupos' | 'eliminatorias'>('grupos');
   const [grupoSeleccionado, setGrupoSeleccionado] = useState('A');
+  const [faseEliminatoria, setFaseEliminatoria] = useState('16vos de Final');
 
-  // Gestos de deslizamiento (Swipe)
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   const letrasGrupos = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+  const fasesEliminatorias = ['16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final'];
+  const nombresFases: Record<string, string> = {
+    '16vos de Final': '16vos',
+    'Octavos de Final': 'Octavos',
+    'Cuartos de Final': 'Cuartos',
+    'Semifinal': 'Semis',
+    'Tercer Puesto': '3er Puesto',
+    'Final': 'Final'
+  };
 
   useEffect(() => {
     const inicializar = async () => {
@@ -61,7 +70,6 @@ export default function Fixture() {
     inicializar();
   }, []);
 
-  // Lógica para detectar Swipe Left / Right
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
@@ -79,9 +87,16 @@ export default function Fixture() {
     if (vistaActiva === 'grupos') {
       const currentIndex = letrasGrupos.indexOf(grupoSeleccionado);
       if (distance > minSwipeDistance && currentIndex < letrasGrupos.length - 1) {
-        setGrupoSeleccionado(letrasGrupos[currentIndex + 1]); // Swipe Izquierda (Avanza)
+        setGrupoSeleccionado(letrasGrupos[currentIndex + 1]);
       } else if (distance < -minSwipeDistance && currentIndex > 0) {
-        setGrupoSeleccionado(letrasGrupos[currentIndex - 1]); // Swipe Derecha (Retrocede)
+        setGrupoSeleccionado(letrasGrupos[currentIndex - 1]);
+      }
+    } else if (vistaActiva === 'eliminatorias') {
+      const currentIndex = fasesEliminatorias.indexOf(faseEliminatoria);
+      if (distance > minSwipeDistance && currentIndex < fasesEliminatorias.length - 1) {
+        setFaseEliminatoria(fasesEliminatorias[currentIndex + 1]);
+      } else if (distance < -minSwipeDistance && currentIndex > 0) {
+        setFaseEliminatoria(fasesEliminatorias[currentIndex - 1]);
       }
     }
   };
@@ -154,8 +169,7 @@ export default function Fixture() {
     const equiposOk = partido.equipo_a && partido.equipo_b;
     
     const fechaObj = new Date(partido.fecha_hora);
-    const hora = fechaObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-    // Agregamos el día de la semana
+    const hora = fechaObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
     const fecha = fechaObj.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
 
     return (
@@ -194,10 +208,8 @@ export default function Fixture() {
           </div>
         </div>
 
-        {/* Panel Expandible (Rediseñado para nombres largos) */}
         {esExpandido && (
           <div className="p-4 border-t bg-gray-50 border-gray-200">
-            {/* Nombres Completos Liberados */}
             <div className="flex items-start justify-between w-full mb-4 px-2">
               <div className="flex-1 text-center pr-2">
                 <span className="text-sm font-bold text-blue-900 leading-snug break-words">
@@ -246,7 +258,7 @@ export default function Fixture() {
 
   const partidosFiltrados = vistaActiva === 'grupos' 
     ? partidos.filter(p => p.fase === 'Fase de Grupos' && (p.equipo_a?.grupo === grupoSeleccionado || p.equipo_b?.grupo === grupoSeleccionado))
-    : partidos.filter(p => p.fase !== 'Fase de Grupos');
+    : partidos.filter(p => p.fase === faseEliminatoria);
 
   return (
     <div className="min-h-screen bg-gray-100 pb-20">
@@ -272,9 +284,23 @@ export default function Fixture() {
             </div>
           </div>
         )}
+
+        {vistaActiva === 'eliminatorias' && (
+          <div className="px-3 pb-4">
+            <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide">
+              {fasesEliminatorias.map(fase => (
+                <button 
+                  key={fase} onClick={() => setFaseEliminatoria(fase)}
+                  className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg border-2 transition-all ${faseEliminatoria === fase ? 'bg-blue-700 text-white border-blue-700 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-blue-400'}`}
+                >
+                  {nombresFases[fase]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ENVOLVEMOS EL CONTENIDO CON LOS EVENTOS DE SWIPE */}
       <div 
         className="p-4 max-w-2xl mx-auto"
         onTouchStart={onTouchStart}
@@ -321,24 +347,13 @@ export default function Fixture() {
                </div>
             )}
 
-            {vistaActiva === 'grupos' ? (
-              <div className="flex flex-col">
-                {partidosFiltrados.length > 0 ? partidosFiltrados.map(renderizarFilaPartido) : <p className="text-center text-gray-500">No hay partidos.</p>}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {['16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final'].map(fase => {
-                  const partidosFase = partidosFiltrados.filter(p => p.fase === fase);
-                  if (partidosFase.length === 0) return null;
-                  return (
-                    <div key={fase}>
-                      <h3 className="font-bold text-lg text-gray-800 mb-3 border-b-2 border-gray-300 pb-1">{fase}</h3>
-                      {partidosFase.map(renderizarFilaPartido)}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <div className="flex flex-col">
+              {partidosFiltrados.length > 0 ? (
+                partidosFiltrados.map(renderizarFilaPartido)
+              ) : (
+                <p className="text-center text-gray-500">No hay partidos.</p>
+              )}
+            </div>
           </>
         )}
       </div>

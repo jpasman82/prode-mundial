@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import Fixture from '../fixture/page'; // Reutilizamos el componente que ya armamos
-import { Menu, X, Trophy, Table, Calculator, LogOut } from 'lucide-react'; 
+import Fixture from '../fixture/page'; 
 import Simulador from '../simulador/page';
+import { Menu, X, Trophy, Table, Calculator, LogOut } from 'lucide-react'; 
 
 export default function Dashboard() {
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -81,6 +81,7 @@ export default function Dashboard() {
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           {pestanaActiva === 'fixture' && <Fixture />}
+          
           {pestanaActiva === 'prode' && (
             <div className="bg-white p-8 rounded-2xl shadow-sm text-center">
               <Trophy size={48} className="mx-auto text-yellow-500 mb-4" />
@@ -88,13 +89,9 @@ export default function Dashboard() {
               <p className="text-gray-500">Próximamente verás aquí los puntos de todos tus amigos.</p>
             </div>
           )}
-          {pestanaActiva === 'simulador' && (
-            <div className="bg-white p-8 rounded-2xl shadow-sm text-center border-2 border-dashed border-gray-200">
-              <Calculator size={48} className="mx-auto text-blue-500 mb-4" />
-              <h2 className="text-2xl font-bold">Simulador de Llaves</h2>
-              <p className="text-gray-500">Jugá con los resultados para ver cómo quedan los cruces.</p>
-            </div>
-          )}
+          
+          {/* ¡Acá está el cambio! Ahora llama al componente Simulador de verdad */}
+          {pestanaActiva === 'simulador' && <Simulador />}
         </main>
       </div>
     </div>

@@ -35,8 +35,8 @@ export default function Fixture() {
         .select(`
           id, fecha_hora, fase, estado, goles_a, goles_b, estadio, ciudad, placeholder_a, placeholder_b,
           equipo_a_id, equipo_b_id,
-          equipo_a:equipos!equipo_a_id(id, nombre, bandera_url),
-          equipo_b:equipos!equipo_b_id(id, nombre, bandera_url)
+          equipo_a:equipos!equipo_a_id(id, nombre, bandera_url, grupo),
+          equipo_b:equipos!equipo_b_id(id, nombre, bandera_url, grupo)
         `)
         .order('fecha_hora', { ascending: true });
 
@@ -179,16 +179,17 @@ export default function Fixture() {
     const banderaB = partido.equipo_b ? partido.equipo_b.bandera_url : '🛡️';
 
     return (
-      <div key={partido.id} className={`bg-white p-4 rounded-xl shadow-sm border-t-4 ${equiposDefinidos ? 'border-green-500' : 'border-gray-300 opacity-75'}`}>
+      <div key={partido.id} className={`bg-white p-4 rounded-xl shadow-sm border-t-4 ${equiposDefinidos ? 'border-green-500' : 'border-gray-400 opacity-90'}`}>
         <div className="text-center mb-4 flex flex-col items-center gap-1">
-          <span className={`text-xs font-bold py-1 px-3 rounded-full uppercase tracking-wider ${equiposDefinidos ? 'bg-gray-200 text-gray-700' : 'bg-orange-100 text-orange-800'}`}>
+          <span className={`text-xs font-bold py-1 px-3 rounded-full uppercase tracking-wider ${equiposDefinidos ? 'bg-slate-200 text-slate-800' : 'bg-orange-100 text-orange-900'}`}>
             {partido.fase}
           </span>
-          <span className="text-xs text-gray-500 font-bold">
+          {/* GRISES MÁS OSCUROS: gray-700 en lugar de gray-500 */}
+          <span className="text-xs text-gray-700 font-bold mt-1">
             🗓️ {formatearFecha(partido.fecha_hora)}
           </span>
           {partido.estadio && (
-            <span className="text-xs text-gray-500 font-medium">
+            <span className="text-xs text-gray-700 font-medium">
               📍 {partido.estadio}, {partido.ciudad}
             </span>
           )}
@@ -196,33 +197,34 @@ export default function Fixture() {
         
         <div className="flex justify-between items-center mb-4">
           <div className="flex flex-col items-center w-1/3">
-            <span className={`text-4xl mb-2 ${!partido.equipo_a && 'grayscale opacity-50'}`}>{banderaA}</span>
-            <span className="font-bold text-sm text-center leading-tight">{nombreA}</span>
+            <span className="text-4xl mb-2">{banderaA}</span>
+            <span className="font-bold text-sm text-center leading-tight text-gray-900">{nombreA}</span>
           </div>
           <div className="flex items-center gap-2 w-1/3 justify-center">
             <input 
               type="number" value={pred.a ?? ''} onChange={(e) => handleCambio(partido.id, 'a', e.target.value)}
               disabled={!equiposDefinidos}
-              className="w-14 h-14 text-center text-2xl font-bold border border-gray-300 rounded-lg outline-none focus:border-green-500 bg-gray-50 disabled:bg-gray-200"
+              className="w-14 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg outline-none focus:border-green-500 bg-gray-50 disabled:bg-gray-200 disabled:text-gray-700 text-gray-900"
               min="0"
             />
-            <span className="font-bold text-gray-400">-</span>
+            {/* GRISES MÁS OSCUROS: gray-700 en lugar de gray-400 */}
+            <span className="font-bold text-gray-700">-</span>
             <input 
               type="number" value={pred.b ?? ''} onChange={(e) => handleCambio(partido.id, 'b', e.target.value)}
               disabled={!equiposDefinidos}
-              className="w-14 h-14 text-center text-2xl font-bold border border-gray-300 rounded-lg outline-none focus:border-green-500 bg-gray-50 disabled:bg-gray-200"
+              className="w-14 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg outline-none focus:border-green-500 bg-gray-50 disabled:bg-gray-200 disabled:text-gray-700 text-gray-900"
               min="0"
             />
           </div>
           <div className="flex flex-col items-center w-1/3">
-            <span className={`text-4xl mb-2 ${!partido.equipo_b && 'grayscale opacity-50'}`}>{banderaB}</span>
-            <span className="font-bold text-sm text-center leading-tight">{nombreB}</span>
+            <span className="text-4xl mb-2">{banderaB}</span>
+            <span className="font-bold text-sm text-center leading-tight text-gray-900">{nombreB}</span>
           </div>
         </div>
         <button 
           onClick={() => guardarPronostico(partido.id)}
           disabled={estaGuardando || !equiposDefinidos}
-          className={`w-full font-bold py-3 rounded-lg transition ${equiposDefinidos ? 'bg-green-600 text-white hover:bg-green-700 disabled:bg-green-300' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+          className={`w-full font-bold py-3 rounded-lg transition ${equiposDefinidos ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-700 cursor-not-allowed'}`}
         >
           {estaGuardando ? 'Guardando...' : equiposDefinidos ? 'Guardar Pronóstico' : 'Equipos sin definir'}
         </button>
@@ -244,28 +246,28 @@ export default function Fixture() {
           <Link href="/dashboard" className="text-blue-600 font-bold text-xl">
             ← Volver
           </Link>
-          <h1 className="text-xl font-bold text-gray-800 flex-1">Torneo</h1>
+          <h1 className="text-xl font-bold text-gray-900 flex-1">Torneo</h1>
         </header>
         
         <div className="flex bg-gray-200 p-1 rounded-lg mt-4 max-w-2xl mx-auto">
           <button 
             onClick={() => setVistaActiva('grupos')}
-            className={`flex-1 py-2 font-bold rounded-md transition ${vistaActiva === 'grupos' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-300'}`}
+            className={`flex-1 py-2 font-bold rounded-md transition ${vistaActiva === 'grupos' ? 'bg-white shadow text-blue-700' : 'text-gray-700 hover:bg-gray-300'}`}
           >
-            Fase de Grupos
+            Grupos
           </button>
           <button 
             onClick={() => setVistaActiva('eliminatorias')}
-            className={`flex-1 py-2 font-bold rounded-md transition ${vistaActiva === 'eliminatorias' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-300'}`}
+            className={`flex-1 py-2 font-bold rounded-md transition ${vistaActiva === 'eliminatorias' ? 'bg-white shadow text-blue-700' : 'text-gray-700 hover:bg-gray-300'}`}
           >
-            Eliminatorias
+            Llaves
           </button>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto p-4 mt-4">
         {cargando ? (
-          <p className="text-center text-gray-500 font-bold mt-10">Cargando base de datos...</p>
+          <p className="text-center text-gray-700 font-bold mt-10">Cargando base de datos...</p>
         ) : vistaActiva === 'grupos' ? (
           <div className="flex flex-col gap-6">
             <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide">
@@ -273,42 +275,44 @@ export default function Fixture() {
                 <button
                   key={letra}
                   onClick={() => setGrupoSeleccionado(letra)}
-                  className={`min-w-[48px] h-12 rounded-full font-bold text-lg flex items-center justify-center transition border-2 ${grupoSeleccionado === letra ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}
+                  className={`min-w-[48px] h-12 rounded-full font-bold text-lg flex items-center justify-center transition border-2 ${grupoSeleccionado === letra ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-400 hover:border-blue-400'}`}
                 >
                   {letra}
                 </button>
               ))}
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-              <div className="bg-blue-600 text-white p-3">
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-300">
+              <div className="bg-blue-700 text-white p-3">
                 <h2 className="font-bold text-lg">Posiciones Grupo {grupoSeleccionado}</h2>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-50 text-gray-600 border-b">
+                  <thead className="bg-gray-100 text-gray-800 border-b-2 border-gray-300">
                     <tr>
                       <th className="px-4 py-3">País</th>
                       <th className="px-2 py-3 text-center">PTS</th>
-                      <th className="px-2 py-3 text-center text-gray-400">PJ</th>
-                      <th className="px-2 py-3 text-center text-gray-400">GF</th>
-                      <th className="px-2 py-3 text-center text-gray-400">GC</th>
-                      <th className="px-2 py-3 text-center text-gray-400">DIF</th>
+                      {/* GRISES MÁS OSCUROS: gray-600 en lugar de gray-400 */}
+                      <th className="px-2 py-3 text-center text-gray-600">PJ</th>
+                      <th className="px-2 py-3 text-center text-gray-600">GF</th>
+                      <th className="px-2 py-3 text-center text-gray-600">GC</th>
+                      <th className="px-2 py-3 text-center text-gray-600">DIF</th>
                     </tr>
                   </thead>
                   <tbody>
                     {calcularTablaPosiciones(grupoSeleccionado).map((eq: any, index: number) => (
-                      <tr key={eq.id} className="border-b last:border-0 hover:bg-gray-50">
-                        <td className="px-4 py-3 flex items-center gap-2 font-bold">
+                      <tr key={eq.id} className="border-b border-gray-200 last:border-0 hover:bg-gray-50">
+                        <td className="px-4 py-3 flex items-center gap-2 font-bold text-gray-900">
                           <span>{index + 1}.</span>
                           <span className="text-xl">{eq.bandera_url}</span>
                           {eq.nombre}
                         </td>
-                        <td className="px-2 py-3 text-center font-bold text-blue-600">{eq.pts}</td>
-                        <td className="px-2 py-3 text-center text-gray-500">{eq.pj}</td>
-                        <td className="px-2 py-3 text-center text-gray-500">{eq.gf}</td>
-                        <td className="px-2 py-3 text-center text-gray-500">{eq.gc}</td>
-                        <td className="px-2 py-3 text-center text-gray-500">{eq.gf - eq.gc}</td>
+                        <td className="px-2 py-3 text-center font-bold text-blue-700">{eq.pts}</td>
+                        {/* GRISES MÁS OSCUROS: gray-700 en lugar de gray-500 */}
+                        <td className="px-2 py-3 text-center text-gray-700 font-medium">{eq.pj}</td>
+                        <td className="px-2 py-3 text-center text-gray-700 font-medium">{eq.gf}</td>
+                        <td className="px-2 py-3 text-center text-gray-700 font-medium">{eq.gc}</td>
+                        <td className="px-2 py-3 text-center text-gray-700 font-medium">{eq.gf - eq.gc}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -317,11 +321,11 @@ export default function Fixture() {
             </div>
 
             <div className="mt-4">
-              <h3 className="font-bold text-gray-700 mb-4 text-lg">Partidos del Grupo {grupoSeleccionado}</h3>
+              <h3 className="font-bold text-gray-800 mb-4 text-lg">Partidos del Grupo {grupoSeleccionado}</h3>
               <div className="flex flex-col gap-4">
                 {partidosDelGrupo.length > 0 
                   ? partidosDelGrupo.map(renderizarPartido)
-                  : <p className="text-gray-500">No hay partidos cargados para este grupo.</p>
+                  : <p className="text-gray-700 font-medium">No hay partidos cargados para este grupo.</p>
                 }
               </div>
             </div>
@@ -334,7 +338,7 @@ export default function Fixture() {
               
               return (
                 <div key={fase}>
-                  <h3 className="font-bold text-xl text-gray-800 mb-4 border-b-2 border-gray-300 pb-2">{fase}</h3>
+                  <h3 className="font-bold text-xl text-gray-900 mb-4 border-b-2 border-gray-400 pb-2">{fase}</h3>
                   <div className="flex flex-col gap-4">
                     {partidosFase.map(renderizarPartido)}
                   </div>

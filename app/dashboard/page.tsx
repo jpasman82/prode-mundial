@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import Fixture from '../fixture/page'; 
 import Simulador from '../simulador/page';
 import { Menu, X, Trophy, Table, Calculator, LogOut } from 'lucide-react'; 
+import MiProde from '../prode/page';
 
 export default function Dashboard() {
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -82,13 +83,7 @@ export default function Dashboard() {
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           {pestanaActiva === 'fixture' && <Fixture />}
           
-          {pestanaActiva === 'prode' && (
-            <div className="bg-white p-8 rounded-2xl shadow-sm text-center">
-              <Trophy size={48} className="mx-auto text-yellow-500 mb-4" />
-              <h2 className="text-2xl font-bold">Ranking del Grupo</h2>
-              <p className="text-gray-500">Próximamente verás aquí los puntos de todos tus amigos.</p>
-            </div>
-          )}
+          {pestanaActiva === 'prode' && <MiProde />}
           
           {/* ¡Acá está el cambio! Ahora llama al componente Simulador de verdad */}
           {pestanaActiva === 'simulador' && <Simulador />}

@@ -135,17 +135,24 @@ export default function Simulador() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return alert("Debes iniciar sesión");
 
-    const inserts = Object.entries(simulacion).map(([partido_id, res]) => ({
-      usuario_id: session.user.id,
-      partido_id,
-      prediccion_goles_a: parseInt(res.a),
-      prediccion_goles_b: parseInt(res.b)
-    }));
+    // Ahora guardamos los goles y TAMBIÉN los equipos que simulaste
+    const inserts = datosSimulados.partidos.map(p => {
+      const res = simulacion[p.id];
+      if (!res || res.a === '' || res.b === '') return null;
+      return {
+        usuario_id: session.user.id,
+        partido_id: p.id,
+        prediccion_goles_a: parseInt(res.a),
+        prediccion_goles_b: parseInt(res.b),
+        equipo_a_id: p.equipo_a_simulado?.id || null,
+        equipo_b_id: p.equipo_b_simulado?.id || null
+      };
+    }).filter(Boolean);
 
     const { error } = await supabase.from('pronosticos').upsert(inserts, { onConflict: 'usuario_id,partido_id' });
     
     setGuardando(false);
-    if (error) alert("Error al guardar");
+    if (error) alert("Error al guardar: " + error.message);
     else alert("¡Toda la simulación fue guardada como tu Prode oficial! 🏆");
   };
 

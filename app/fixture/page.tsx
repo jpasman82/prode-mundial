@@ -17,6 +17,10 @@ export default function Fixture() {
   const [vistaActiva, setVistaActiva] = useState<'grupos' | 'eliminatorias'>('grupos');
   const [grupoSeleccionado, setGrupoSeleccionado] = useState('A');
 
+  // Gestos de deslizamiento (Swipe)
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
   const letrasGrupos = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
   useEffect(() => {
@@ -56,6 +60,31 @@ export default function Fixture() {
     };
     inicializar();
   }, []);
+
+  // Lógica para detectar Swipe Left / Right
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const minSwipeDistance = 50;
+
+    if (vistaActiva === 'grupos') {
+      const currentIndex = letrasGrupos.indexOf(grupoSeleccionado);
+      if (distance > minSwipeDistance && currentIndex < letrasGrupos.length - 1) {
+        setGrupoSeleccionado(letrasGrupos[currentIndex + 1]); // Swipe Izquierda (Avanza)
+      } else if (distance < -minSwipeDistance && currentIndex > 0) {
+        setGrupoSeleccionado(letrasGrupos[currentIndex - 1]); // Swipe Derecha (Retrocede)
+      }
+    }
+  };
 
   const toggleExpandir = (id: string) => {
     setPartidoExpandido(partidoExpandido === id ? null : id);
@@ -126,7 +155,8 @@ export default function Fixture() {
     
     const fechaObj = new Date(partido.fecha_hora);
     const hora = fechaObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-    const fecha = fechaObj.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+    // Agregamos el día de la semana
+    const fecha = fechaObj.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
 
     return (
       <div key={partido.id} className="mb-3 overflow-hidden bg-white border border-gray-300 rounded-xl shadow-sm">
@@ -134,19 +164,16 @@ export default function Fixture() {
           onClick={() => toggleExpandir(partido.id)}
           className="flex flex-col p-3 cursor-pointer active:bg-gray-100"
         >
-          {/* NUEVO DISEÑO: Fecha, hora y flecha arriba de todo */}
           <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-              🗓️ {fecha} • {hora}
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide capitalize">
+              🗓️ {fecha.replace('.', '')} • {hora}
             </span>
             <div className="text-gray-400">
               {esExpandido ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </div>
           </div>
 
-          {/* NUEVO DISEÑO: Equipos usando el 100% del ancho horizontal */}
           <div className="flex items-center justify-between w-full">
-            {/* Equipo A */}
             <div className="flex items-center justify-end flex-1 gap-2 min-w-0">
               <span className="text-sm font-bold text-gray-900 truncate leading-tight text-right">
                 {partido.equipo_a?.nombre || partido.placeholder_a}
@@ -154,12 +181,10 @@ export default function Fixture() {
               <span className="text-2xl flex-shrink-0">{partido.equipo_a?.bandera_url || '🛡️'}</span>
             </div>
             
-            {/* VS */}
             <div className="px-2">
               <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-full">VS</span>
             </div>
             
-            {/* Equipo B */}
             <div className="flex items-center justify-start flex-1 gap-2 min-w-0">
               <span className="text-2xl flex-shrink-0">{partido.equipo_b?.bandera_url || '🛡️'}</span>
               <span className="text-sm font-bold text-gray-900 truncate leading-tight text-left">
@@ -169,9 +194,23 @@ export default function Fixture() {
           </div>
         </div>
 
-        {/* Panel Expandible */}
+        {/* Panel Expandible (Rediseñado para nombres largos) */}
         {esExpandido && (
           <div className="p-4 border-t bg-gray-50 border-gray-200">
+            {/* Nombres Completos Liberados */}
+            <div className="flex items-start justify-between w-full mb-4 px-2">
+              <div className="flex-1 text-center pr-2">
+                <span className="text-sm font-bold text-blue-900 leading-snug break-words">
+                  {partido.equipo_a?.nombre || partido.placeholder_a}
+                </span>
+              </div>
+              <div className="flex-1 text-center pl-2">
+                <span className="text-sm font-bold text-blue-900 leading-snug break-words">
+                  {partido.equipo_b?.nombre || partido.placeholder_b}
+                </span>
+              </div>
+            </div>
+
             {partido.estadio && (
               <div className="flex justify-center items-center gap-1 mb-4 text-xs font-bold text-gray-600">
                 <MapPin size={14} /> {partido.estadio}, {partido.ciudad}
@@ -211,7 +250,6 @@ export default function Fixture() {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-20">
-      {/* SE QUITÓ EL STICKY: Ahora todo esto sube al scrollear hacia abajo */}
       <div className="bg-white shadow-sm mb-4">
         <div className="p-3">
           <div className="flex gap-1 p-1 bg-gray-200 rounded-lg">
@@ -236,7 +274,13 @@ export default function Fixture() {
         )}
       </div>
 
-      <div className="p-4 max-w-2xl mx-auto">
+      {/* ENVOLVEMOS EL CONTENIDO CON LOS EVENTOS DE SWIPE */}
+      <div 
+        className="p-4 max-w-2xl mx-auto"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         {cargando ? (
           <p className="mt-10 font-bold text-center text-gray-700">Cargando partidos...</p>
         ) : (

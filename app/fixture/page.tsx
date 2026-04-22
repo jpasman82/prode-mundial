@@ -12,8 +12,6 @@ export default function Fixture() {
   
   const [predicciones, setPredicciones] = useState<Record<string, { a: string, b: string }>>({});
   const [guardandoPartido, setGuardandoPartido] = useState<string | null>(null);
-  
-  // Estado para controlar qué partido está abierto (acordeón)
   const [partidoExpandido, setPartidoExpandido] = useState<string | null>(null);
 
   const [vistaActiva, setVistaActiva] = useState<'grupos' | 'eliminatorias'>('grupos');
@@ -60,7 +58,6 @@ export default function Fixture() {
   }, []);
 
   const toggleExpandir = (id: string) => {
-    // Si toco el que ya está abierto, lo cierro. Si toco otro, lo abro.
     setPartidoExpandido(partidoExpandido === id ? null : id);
   };
 
@@ -85,7 +82,7 @@ export default function Fixture() {
         await supabase.from('pronosticos').insert([{ usuario_id: userId, partido_id: partidoId, prediccion_goles_a: parseInt(pred.a), prediccion_goles_b: parseInt(pred.b) }]);
       }
       alert('¡Pronóstico guardado! ✅');
-      setPartidoExpandido(null); // Cierra el acordeón al guardar
+      setPartidoExpandido(null);
     } catch (e) {
       alert('Error al guardar');
     } finally {
@@ -122,56 +119,57 @@ export default function Fixture() {
     });
   };
 
-  // VERSIÓN COMPACTA DE LA FILA DEL PARTIDO
   const renderizarFilaPartido = (partido: any) => {
     const esExpandido = partidoExpandido === partido.id;
     const pred = predicciones[partido.id] || { a: '', b: '' };
     const equiposOk = partido.equipo_a && partido.equipo_b;
     
-    // Formato de fecha corto (ej: "11 jun") y hora (ej: "16:00")
     const fechaObj = new Date(partido.fecha_hora);
     const hora = fechaObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
     const fecha = fechaObj.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 
     return (
-      <div key={partido.id} className="mb-2 overflow-hidden bg-white border border-gray-300 rounded-lg shadow-sm">
-        {/* Cabecera de la fila (Siempre visible) */}
+      <div key={partido.id} className="mb-3 overflow-hidden bg-white border border-gray-300 rounded-xl shadow-sm">
         <div 
           onClick={() => toggleExpandir(partido.id)}
-          className="flex items-center justify-between p-3 cursor-pointer active:bg-gray-100"
+          className="flex flex-col p-3 cursor-pointer active:bg-gray-100"
         >
-          {/* Fecha y Hora a la izquierda */}
-          <div className="flex flex-col items-start w-14 border-r border-gray-200 pr-2">
-            <span className="text-[10px] font-bold text-gray-600 uppercase">{fecha}</span>
-            <span className="text-xs font-bold text-blue-800">{hora}</span>
+          {/* NUEVO DISEÑO: Fecha, hora y flecha arriba de todo */}
+          <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+              🗓️ {fecha} • {hora}
+            </span>
+            <div className="text-gray-400">
+              {esExpandido ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </div>
           </div>
 
-          {/* Equipos en el centro */}
-          <div className="flex items-center flex-1 gap-2 px-2">
-            <div className="flex items-center justify-end flex-1 gap-2">
-              <span className="text-sm font-bold text-gray-900 truncate">
+          {/* NUEVO DISEÑO: Equipos usando el 100% del ancho horizontal */}
+          <div className="flex items-center justify-between w-full">
+            {/* Equipo A */}
+            <div className="flex items-center justify-end flex-1 gap-2 min-w-0">
+              <span className="text-sm font-bold text-gray-900 truncate leading-tight text-right">
                 {partido.equipo_a?.nombre || partido.placeholder_a}
               </span>
-              <span className="text-2xl">{partido.equipo_a?.bandera_url || '🛡️'}</span>
+              <span className="text-2xl flex-shrink-0">{partido.equipo_a?.bandera_url || '🛡️'}</span>
             </div>
             
-            <span className="text-xs font-bold text-gray-400">vs</span>
+            {/* VS */}
+            <div className="px-2">
+              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-full">VS</span>
+            </div>
             
-            <div className="flex items-center flex-1 gap-2">
-              <span className="text-2xl">{partido.equipo_b?.bandera_url || '🛡️'}</span>
-              <span className="text-sm font-bold text-gray-900 truncate">
+            {/* Equipo B */}
+            <div className="flex items-center justify-start flex-1 gap-2 min-w-0">
+              <span className="text-2xl flex-shrink-0">{partido.equipo_b?.bandera_url || '🛡️'}</span>
+              <span className="text-sm font-bold text-gray-900 truncate leading-tight text-left">
                 {partido.equipo_b?.nombre || partido.placeholder_b}
               </span>
             </div>
           </div>
-          
-          {/* Flechita a la derecha */}
-          <div className="ml-1 text-gray-500">
-            {esExpandido ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </div>
         </div>
 
-        {/* Panel Expandible (Carga de pronóstico y estadio) */}
+        {/* Panel Expandible */}
         {esExpandido && (
           <div className="p-4 border-t bg-gray-50 border-gray-200">
             {partido.estadio && (
@@ -213,18 +211,17 @@ export default function Fixture() {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-20">
-      <div className="sticky top-0 z-20 bg-white shadow-sm">
-        {/* Selector Grupos / Llaves */}
-        <div className="p-3 bg-white">
+      {/* SE QUITÓ EL STICKY: Ahora todo esto sube al scrollear hacia abajo */}
+      <div className="bg-white shadow-sm mb-4">
+        <div className="p-3">
           <div className="flex gap-1 p-1 bg-gray-200 rounded-lg">
-            <button onClick={() => setVistaActiva('grupos')} className={`flex-1 py-2 font-bold rounded-md ${vistaActiva === 'grupos' ? 'bg-white text-blue-800 shadow' : 'text-gray-700'}`}>Fase de Grupos</button>
-            <button onClick={() => setVistaActiva('eliminatorias')} className={`flex-1 py-2 font-bold rounded-md ${vistaActiva === 'eliminatorias' ? 'bg-white text-blue-800 shadow' : 'text-gray-700'}`}>Eliminatorias</button>
+            <button onClick={() => setVistaActiva('grupos')} className={`flex-1 py-2 font-bold rounded-md transition-colors ${vistaActiva === 'grupos' ? 'bg-white text-blue-800 shadow' : 'text-gray-700'}`}>Fase de Grupos</button>
+            <button onClick={() => setVistaActiva('eliminatorias')} className={`flex-1 py-2 font-bold rounded-md transition-colors ${vistaActiva === 'eliminatorias' ? 'bg-white text-blue-800 shadow' : 'text-gray-700'}`}>Eliminatorias</button>
           </div>
         </div>
 
-        {/* Cuadrícula de Botones de Grupo (Solo visible en Fase de Grupos) */}
         {vistaActiva === 'grupos' && (
-          <div className="px-3 pb-3 bg-white border-b border-gray-200">
+          <div className="px-3 pb-4">
             <div className="grid grid-cols-6 gap-2">
               {letrasGrupos.map(l => (
                 <button 
@@ -244,7 +241,6 @@ export default function Fixture() {
           <p className="mt-10 font-bold text-center text-gray-700">Cargando partidos...</p>
         ) : (
           <>
-            {/* Tabla de posiciones si estamos en grupos */}
             {vistaActiva === 'grupos' && (
                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-300 mb-6">
                  <div className="bg-blue-800 text-white p-2 text-center">
@@ -281,7 +277,6 @@ export default function Fixture() {
                </div>
             )}
 
-            {/* Lista de Partidos */}
             {vistaActiva === 'grupos' ? (
               <div className="flex flex-col">
                 {partidosFiltrados.length > 0 ? partidosFiltrados.map(renderizarFilaPartido) : <p className="text-center text-gray-500">No hay partidos.</p>}

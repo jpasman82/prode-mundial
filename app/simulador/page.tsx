@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ChevronRight, ChevronLeft, Save, Trophy, ArrowRight, ShieldAlert } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Save, Trophy, ArrowRight, ShieldAlert, Dices } from 'lucide-react';
 
 export default function Simulador() {
   const [partidos, setPartidos] = useState<any[]>([]);
@@ -10,7 +10,6 @@ export default function Simulador() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
-  // Pasos de navegación
   const letrasGrupos = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
   const fasesEliminatorias = ['16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final'];
   const pasosTotales = [...letrasGrupos.map(l => `Grupo ${l}`), ...fasesEliminatorias, 'Resumen'];
@@ -36,7 +35,19 @@ export default function Simulador() {
     }));
   };
 
-  // Motor Core: Calcula las posiciones de un grupo
+  const llenarAlAzar = () => {
+    const nuevaSimulacion: Record<string, { a: string, b: string }> = { ...simulacion };
+    partidos.forEach(p => {
+      let ga = Math.floor(Math.random() * 4);
+      let gb = Math.floor(Math.random() * 4);
+      if (p.fase !== 'Fase de Grupos' && ga === gb) {
+        if (Math.random() > 0.5) ga++; else gb++;
+      }
+      nuevaSimulacion[p.id] = { a: ga.toString(), b: gb.toString() };
+    });
+    setSimulacion(nuevaSimulacion);
+  };
+
   const calcularTabla = (grupo: string) => {
     const stats: Record<string, any> = {};
     equipos.filter(e => e.grupo === grupo).forEach(e => {
@@ -60,14 +71,12 @@ export default function Simulador() {
     return Object.values(stats).sort((a: any, b: any) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
   };
 
-  // Motor Core: Resuelve TODAS las llaves dinámicamente en tiempo real
   const datosSimulados = useMemo(() => {
     if (equipos.length === 0 || partidos.length === 0) return { partidos: [], clasificados: {} };
 
     const clasificados: Record<string, any> = {};
     const terceros: any[] = [];
 
-    // 1. Grupos
     letrasGrupos.forEach(grupo => {
       const tabla = calcularTabla(grupo);
       if (tabla.length >= 3) {
@@ -77,17 +86,14 @@ export default function Simulador() {
       }
     });
 
-    // 2. Mejores Terceros
     terceros.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
     const mejoresTerceros = terceros.slice(0, 8);
     let indexTercero = 0;
 
-    // 3. Proyectar Eliminatorias
     const partidosProyectados = partidos.map(p => {
       const partido = { ...p };
 
       if (partido.fase !== 'Fase de Grupos') {
-        // Resolver Equipo A
         if (partido.placeholder_a) {
           if (partido.placeholder_a.includes('Mejor 3ro')) {
             partido.equipo_a_simulado = mejoresTerceros[indexTercero % 8];
@@ -96,7 +102,6 @@ export default function Simulador() {
             partido.equipo_a_simulado = clasificados[partido.placeholder_a];
           }
         }
-        // Resolver Equipo B
         if (partido.placeholder_b) {
           if (partido.placeholder_b.includes('Mejor 3ro')) {
             partido.equipo_b_simulado = mejoresTerceros[indexTercero % 8];
@@ -106,7 +111,6 @@ export default function Simulador() {
           }
         }
 
-        // Si hay resultado, avanzar al ganador (Si hay empate, pasa el equipo A por defecto. Idealmente el usuario no debería empatar)
         const res = simulacion[partido.id];
         if (res && res.a !== '' && res.b !== '' && partido.equipo_a_simulado && partido.equipo_b_simulado) {
           const ga = parseInt(res.a); const gb = parseInt(res.b);
@@ -119,7 +123,6 @@ export default function Simulador() {
           clasificados[`Perdedor ${partido.codigo_partido}`] = perdedor;
         }
       } else {
-        // Para grupos, los simulados son los reales
         partido.equipo_a_simulado = partido.equipo_a;
         partido.equipo_b_simulado = partido.equipo_b;
       }
@@ -135,7 +138,6 @@ export default function Simulador() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return alert("Debes iniciar sesión");
 
-    // Ahora guardamos los goles y TAMBIÉN los equipos que simulaste
     const inserts = datosSimulados.partidos.map(p => {
       const res = simulacion[p.id];
       if (!res || res.a === '' || res.b === '') return null;
@@ -164,13 +166,11 @@ export default function Simulador() {
     return (
       <div key={p.id} className="bg-white p-4 rounded-xl border border-gray-300 shadow-sm mb-3">
         <div className="flex items-center justify-between gap-2">
-          {/* Equipo A */}
           <div className={`flex-1 text-right font-bold text-sm flex items-center justify-end gap-2 ${listos ? 'text-gray-900' : 'text-gray-400'}`}>
             <span className="truncate">{eqA ? eqA.nombre : p.placeholder_a}</span>
             <span className="text-2xl">{eqA ? eqA.bandera_url : '🛡️'}</span>
           </div>
 
-          {/* Inputs de Goles (COLORES MEJORADOS PARA ALTO CONTRASTE) */}
           <div className="flex gap-2">
             <input 
               type="number" 
@@ -188,7 +188,6 @@ export default function Simulador() {
             />
           </div>
 
-          {/* Equipo B */}
           <div className={`flex-1 text-left font-bold text-sm flex items-center gap-2 ${listos ? 'text-gray-900' : 'text-gray-400'}`}>
             <span className="text-2xl">{eqB ? eqB.bandera_url : '🛡️'}</span>
             <span className="truncate">{eqB ? eqB.nombre : p.placeholder_b}</span>
@@ -215,7 +214,6 @@ export default function Simulador() {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-24">
-      {/* Cabecera Navegación */}
       <div className="bg-white p-4 shadow-sm sticky top-0 z-10">
         <div className="flex justify-between items-center max-w-2xl mx-auto">
           <button 
@@ -278,13 +276,21 @@ export default function Simulador() {
             <div className="space-y-1">
               {partidosA_Mostrar.map(p => renderFilaPartido(p, false))}
             </div>
-            
-            <button 
-              onClick={() => setPasoIndex(p => p + 1)}
-              className="w-full bg-blue-700 text-white py-4 rounded-xl font-bold text-lg shadow-md active:scale-95 transition flex items-center justify-center gap-2"
-            >
-              Siguiente Grupo <ArrowRight size={20} />
-            </button>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={llenarAlAzar}
+                className="w-full bg-purple-100 text-purple-700 border-2 border-purple-200 py-4 rounded-xl font-bold text-sm shadow-sm active:scale-95 transition flex items-center justify-center gap-2"
+              >
+                <Dices size={20} /> Autocompletar Todo
+              </button>
+              <button 
+                onClick={() => setPasoIndex(p => p + 1)}
+                className="w-full bg-blue-700 text-white py-4 rounded-xl font-bold text-sm shadow-md active:scale-95 transition flex items-center justify-center gap-2"
+              >
+                Siguiente Grupo <ArrowRight size={18} />
+              </button>
+            </div>
           </div>
         ) : esResumen ? (
           <div className="space-y-6 text-center">
@@ -311,12 +317,20 @@ export default function Simulador() {
               <Save /> {guardando ? "Guardando..." : "Guardar Prode Oficial"}
             </button>
 
-            <button 
-              onClick={() => setPasoIndex(0)}
-              className="w-full bg-white text-gray-700 py-3 rounded-xl font-bold border-2 border-gray-300"
-            >
-              Volver al inicio
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={llenarAlAzar}
+                className="w-full bg-purple-100 text-purple-700 border-2 border-purple-200 py-3 rounded-xl font-bold text-sm shadow-sm active:scale-95 transition flex items-center justify-center gap-2"
+              >
+                <Dices size={18} /> Tirar Dados de Nuevo
+              </button>
+              <button 
+                onClick={() => setPasoIndex(0)}
+                className="w-full bg-white text-gray-700 py-3 rounded-xl font-bold text-sm border-2 border-gray-300"
+              >
+                Volver al inicio
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
@@ -324,12 +338,20 @@ export default function Simulador() {
               {partidosA_Mostrar.map(p => renderFilaPartido(p, true))}
             </div>
 
-            <button 
-              onClick={() => setPasoIndex(p => p + 1)}
-              className="w-full bg-blue-700 text-white py-4 rounded-xl font-bold text-lg shadow-md active:scale-95 transition flex items-center justify-center gap-2"
-            >
-              Avanzar de Fase <ArrowRight size={20} />
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={llenarAlAzar}
+                className="w-full bg-purple-100 text-purple-700 border-2 border-purple-200 py-4 rounded-xl font-bold text-sm shadow-sm active:scale-95 transition flex items-center justify-center gap-2"
+              >
+                <Dices size={20} /> Autocompletar Todo
+              </button>
+              <button 
+                onClick={() => setPasoIndex(p => p + 1)}
+                className="w-full bg-blue-700 text-white py-4 rounded-xl font-bold text-sm shadow-md active:scale-95 transition flex items-center justify-center gap-2"
+              >
+                Avanzar de Fase <ArrowRight size={18} />
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -4,19 +4,20 @@ import { supabase } from '../../lib/supabase';
 import Fixture from '../fixture/page'; 
 import MiProde from '../prode/page';
 import Simulador from '../simulador/page';
-import Ranking from '../ranking/page'; // <--- Importamos el ranking nuevo
+import Ranking from '../ranking/page';
 import { Menu, X, Trophy, Table, Calculator, LogOut, Medal } from 'lucide-react'; 
 
 export default function Dashboard() {
   const [menuAbierto, setMenuAbierto] = useState(false);
-  // Agregamos 'ranking' a las pestañas
   const [pestanaActiva, setPestanaActiva] = useState<'fixture' | 'prode' | 'ranking' | 'simulador'>('fixture');
   const [userName, setUserName] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const getUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        setUserId(session.user.id);
         const { data } = await supabase.from('usuarios').select('nombre_jugador').eq('id', session.user.id).single();
         setUserName(data?.nombre_jugador || 'Jugador');
       }
@@ -52,7 +53,6 @@ export default function Dashboard() {
             <Trophy size={20} /> Mi Prode
           </button>
           
-          {/* EL NUEVO BOTÓN DEL RANKING */}
           <button onClick={() => { setPestanaActiva('ranking'); setMenuAbierto(false); }} className={`flex items-center gap-3 w-full p-3 rounded-lg transition font-medium ${pestanaActiva === 'ranking' ? 'bg-blue-700 shadow' : 'hover:bg-blue-800 text-blue-100'}`}>
             <Medal size={20} /> Ranking del Grupo
           </button>
@@ -82,9 +82,8 @@ export default function Dashboard() {
 
         <main className="flex-1 overflow-y-auto relative bg-gray-100">
           {pestanaActiva === 'fixture' && <Fixture />}
-          {pestanaActiva === 'prode' && <MiProde />}
-          {pestanaActiva === 'simulador' && <Simulador />}
-          {/* EL COMPONENTE RANKING SE MUESTRA ACÁ */}
+          {pestanaActiva === 'prode' && <MiProde userId={userId} />}
+          {pestanaActiva === 'simulador' && <Simulador userId={userId} />}
           {pestanaActiva === 'ranking' && <Ranking />} 
         </main>
       </div>

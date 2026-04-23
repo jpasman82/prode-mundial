@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Trophy } from 'lucide-react';
 
-export default function MiProde() {
+export default function MiProde({ userId }: { userId: string | null }) {
   const [pronosticos, setPronosticos] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
   const [campeon, setCampeon] = useState<any>(null);

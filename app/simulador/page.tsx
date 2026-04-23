@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { ChevronRight, ChevronLeft, Save, Trophy, ArrowRight, ShieldAlert, Dices } from 'lucide-react';
 
-export default function Simulador() {
+export default function Simulador({ userId }: { userId: string | null }) {
   const [partidos, setPartidos] = useState<any[]>([]);
   const [equipos, setEquipos] = useState<any[]>([]);
   const [simulacion, setSimulacion] = useState<Record<string, { a: string, b: string }>>({});

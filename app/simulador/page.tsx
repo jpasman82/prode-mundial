@@ -1,14 +1,13 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ChevronRight, ChevronLeft, Save, Trophy, ArrowRight, ShieldAlert, Dices } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Trophy, ArrowRight, ShieldAlert, Dices } from 'lucide-react';
 
 export default function Simulador({ userId }: { userId: string | null }) {
   const [partidos, setPartidos] = useState<any[]>([]);
   const [equipos, setEquipos] = useState<any[]>([]);
   const [simulacion, setSimulacion] = useState<Record<string, { a: string, b: string }>>({});
   const [cargando, setCargando] = useState(true);
-  const [guardando, setGuardando] = useState(false);
 
   const letrasGrupos = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
   const fasesEliminatorias = ['16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final'];
@@ -133,31 +132,6 @@ export default function Simulador({ userId }: { userId: string | null }) {
     return { partidos: partidosProyectados, clasificados };
   }, [partidos, simulacion, equipos]);
 
-  const guardarComoPronostico = async () => {
-    setGuardando(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return alert("Debes iniciar sesión");
-
-    const inserts = datosSimulados.partidos.map(p => {
-      const res = simulacion[p.id];
-      if (!res || res.a === '' || res.b === '') return null;
-      return {
-        usuario_id: session.user.id,
-        partido_id: p.id,
-        prediccion_goles_a: parseInt(res.a),
-        prediccion_goles_b: parseInt(res.b),
-        equipo_a_id: p.equipo_a_simulado?.id || null,
-        equipo_b_id: p.equipo_b_simulado?.id || null
-      };
-    }).filter(Boolean);
-
-    const { error } = await supabase.from('pronosticos').upsert(inserts, { onConflict: 'usuario_id,partido_id' });
-    
-    setGuardando(false);
-    if (error) alert("Error al guardar: " + error.message);
-    else alert("¡Toda la simulación fue guardada como tu Prode oficial! 🏆");
-  };
-
   const renderFilaPartido = (p: any, esEliminatoria: boolean) => {
     const eqA = p.equipo_a_simulado;
     const eqB = p.equipo_b_simulado;
@@ -166,31 +140,31 @@ export default function Simulador({ userId }: { userId: string | null }) {
     return (
       <div key={p.id} className="bg-white p-4 rounded-xl border border-gray-300 shadow-sm mb-3">
         <div className="flex items-center justify-between gap-2">
-          <div className={`flex-1 text-right font-bold text-sm flex items-center justify-end gap-2 ${listos ? 'text-gray-900' : 'text-gray-400'}`}>
-            <span className="truncate">{eqA ? eqA.nombre : p.placeholder_a}</span>
-            <span className="text-2xl">{eqA ? eqA.bandera_url : '🛡️'}</span>
+          <div className={`flex-1 min-w-0 text-right font-bold text-sm flex items-center justify-end gap-2 ${listos ? 'text-gray-900' : 'text-gray-400'}`}>
+            <span className="leading-tight">{eqA ? eqA.nombre : p.placeholder_a}</span>
+            <span className="text-2xl flex-shrink-0">{eqA ? eqA.bandera_url : '🛡️'}</span>
           </div>
 
-          <div className="flex gap-2">
-            <input 
-              type="number" 
+          <div className="flex gap-2 flex-shrink-0">
+            <input
+              type="number"
               disabled={!listos}
-              value={simulacion[p.id]?.a || ''} 
+              value={simulacion[p.id]?.a || ''}
               onChange={(e) => handleScore(p.id, 'a', e.target.value)}
               className="w-12 h-14 text-center border-2 border-gray-400 rounded-lg font-black text-xl text-blue-900 bg-gray-50 focus:border-blue-600 focus:bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
             />
-            <input 
-              type="number" 
+            <input
+              type="number"
               disabled={!listos}
-              value={simulacion[p.id]?.b || ''} 
+              value={simulacion[p.id]?.b || ''}
               onChange={(e) => handleScore(p.id, 'b', e.target.value)}
               className="w-12 h-14 text-center border-2 border-gray-400 rounded-lg font-black text-xl text-blue-900 bg-gray-50 focus:border-blue-600 focus:bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
             />
           </div>
 
-          <div className={`flex-1 text-left font-bold text-sm flex items-center gap-2 ${listos ? 'text-gray-900' : 'text-gray-400'}`}>
-            <span className="text-2xl">{eqB ? eqB.bandera_url : '🛡️'}</span>
-            <span className="truncate">{eqB ? eqB.nombre : p.placeholder_b}</span>
+          <div className={`flex-1 min-w-0 text-left font-bold text-sm flex items-center gap-2 ${listos ? 'text-gray-900' : 'text-gray-400'}`}>
+            <span className="text-2xl flex-shrink-0">{eqB ? eqB.bandera_url : '🛡️'}</span>
+            <span className="leading-tight">{eqB ? eqB.nombre : p.placeholder_b}</span>
           </div>
         </div>
         
@@ -308,14 +282,6 @@ export default function Simulador({ userId }: { userId: string | null }) {
                 <p className="text-orange-600 text-sm">Completá todos los resultados hasta la final para ver a tu campeón.</p>
               </div>
             )}
-
-            <button 
-              onClick={guardarComoPronostico}
-              disabled={guardando}
-              className="w-full bg-green-600 text-white py-4 rounded-xl font-black text-xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition"
-            >
-              <Save /> {guardando ? "Guardando..." : "Guardar Prode Oficial"}
-            </button>
 
             <div className="grid grid-cols-2 gap-3">
               <button 

@@ -1,26 +1,36 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase'; 
+import { supabase } from '@/lib/supabase';
 import { Trophy, Medal, Target, CheckCircle2 } from 'lucide-react';
+
+const FASES_EVOLUCION = ['Fecha 1', 'Fecha 2', 'Fecha 3', '16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Finales'];
+
+function determinarFase(faseReal: string, fechaHoraUtc: string) {
+  if (faseReal === 'Fase de Grupos') {
+    const dia = new Date(fechaHoraUtc).getDate();
+    if (dia <= 15) return 'Fecha 1';
+    if (dia <= 21) return 'Fecha 2';
+    return 'Fecha 3';
+  }
+  if (faseReal === 'Final' || faseReal === 'Tercer Puesto') return 'Finales';
+  return faseReal;
+}
+
+function calcularPuntos(p: any, pr: any) {
+  const ga = p.goles_a, gb = p.goles_b, pa = pr.prediccion_goles_a, pb = pr.prediccion_goles_b;
+  if (ga === pa && gb === pb) return { pts: 3, plenos: 1, aciertos: 0 };
+  if (Math.sign(ga - gb) === Math.sign(pa - pb)) return { pts: 1, plenos: 0, aciertos: 1 };
+  return { pts: 0, plenos: 0, aciertos: 0 };
+}
 
 export default function Ranking() {
   const [ranking, setRanking] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtroFase, setFiltroFase] = useState('General');
   const [miUsuarioId, setMiUsuarioId] = useState<string | null>(null);
+  const [faseEvolucion, setFaseEvolucion] = useState<string | null>(null);
 
   const fasesFiltro = ['General', 'Fecha 1', 'Fecha 2', 'Fecha 3', '16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Finales'];
-
-  const determinarFase = (faseReal: string, fechaHoraUtc: string) => {
-    if (faseReal === 'Fase de Grupos') {
-      const dia = new Date(fechaHoraUtc).getDate();
-      if (dia <= 15) return 'Fecha 1';
-      if (dia <= 21) return 'Fecha 2';
-      return 'Fecha 3';
-    }
-    if (faseReal === 'Final' || faseReal === 'Tercer Puesto') return 'Finales';
-    return faseReal;
-  };
 
   useEffect(() => {
     const calcularRanking = async () => {
@@ -34,55 +44,69 @@ export default function Ranking() {
       if (!usuarios || !partidos || !pronosticos) return;
 
       const mapaRanking: Record<string, any> = {};
-      
+
       usuarios.forEach((u: any) => {
-        mapaRanking[u.id] = { 
-          id: u.id, 
-          nombre: u.nombre_jugador || 'Jugador', 
-          puntosTotales: 0, 
-          plenosTotales: 0,     // Aciertos exactos (3 pts)
-          aciertosTotales: 0,   // Aciertos de tendencia (1 pt)
-          puntosPorFase: {} 
+        mapaRanking[u.id] = {
+          id: u.id,
+          nombre: u.nombre_jugador || 'Jugador',
+          puntosTotales: 0,
+          plenosTotales: 0,
+          aciertosTotales: 0,
+          puntosPorFase: {},
+          posicionAnterior: null,
         };
         fasesFiltro.forEach(f => mapaRanking[u.id].puntosPorFase[f] = { pts: 0, plenos: 0, aciertos: 0 });
       });
 
       partidos.forEach((p: any) => {
         const faseDelPartido = determinarFase(p.fase, p.fecha_hora);
-        const pronosticosDelPartido = pronosticos.filter((pr: any) => pr.partido_id === p.id);
-
-        pronosticosDelPartido.forEach((pr: any) => {
+        pronosticos.filter((pr: any) => pr.partido_id === p.id).forEach((pr: any) => {
           const uId = pr.usuario_id;
           if (!mapaRanking[uId]) return;
-
-          let puntos = 0;
-          let esPleno = 0;
-          let esAcierto = 0;
-
-          const golesRealA = p.goles_a;
-          const golesRealB = p.goles_b;
-          const predA = pr.prediccion_goles_a;
-          const predB = pr.prediccion_goles_b;
-
-          if (golesRealA === predA && golesRealB === predB) {
-            puntos = 3;
-            esPleno = 1;
-          } else if (Math.sign(golesRealA - golesRealB) === Math.sign(predA - predB)) {
-            puntos = 1;
-            esAcierto = 1; // Si no le pegó exacto pero acertó la tendencia, suma acá
-          }
-
-          mapaRanking[uId].puntosTotales += puntos;
-          mapaRanking[uId].plenosTotales += esPleno;
-          mapaRanking[uId].aciertosTotales += esAcierto;
-
+          const { pts, plenos, aciertos } = calcularPuntos(p, pr);
+          mapaRanking[uId].puntosTotales += pts;
+          mapaRanking[uId].plenosTotales += plenos;
+          mapaRanking[uId].aciertosTotales += aciertos;
           if (mapaRanking[uId].puntosPorFase[faseDelPartido]) {
-            mapaRanking[uId].puntosPorFase[faseDelPartido].pts += puntos;
-            mapaRanking[uId].puntosPorFase[faseDelPartido].plenos += esPleno;
-            mapaRanking[uId].puntosPorFase[faseDelPartido].aciertos += esAcierto;
+            mapaRanking[uId].puntosPorFase[faseDelPartido].pts += pts;
+            mapaRanking[uId].puntosPorFase[faseDelPartido].plenos += plenos;
+            mapaRanking[uId].puntosPorFase[faseDelPartido].aciertos += aciertos;
           }
         });
       });
+
+      // Calcular evolución: posición antes de la fase más reciente
+      const fasesPresentes = FASES_EVOLUCION.filter(f =>
+        partidos.some(p => determinarFase(p.fase, p.fecha_hora) === f)
+      );
+
+      if (fasesPresentes.length >= 2) {
+        const faseMasReciente = fasesPresentes[fasesPresentes.length - 1];
+        setFaseEvolucion(faseMasReciente);
+
+        // Ranking SIN la fase más reciente
+        const ptsSinFase: Record<string, { pts: number; plenos: number; aciertos: number }> = {};
+        usuarios.forEach((u: any) => { ptsSinFase[u.id] = { pts: 0, plenos: 0, aciertos: 0 }; });
+
+        partidos
+          .filter((p: any) => determinarFase(p.fase, p.fecha_hora) !== faseMasReciente)
+          .forEach((p: any) => {
+            pronosticos.filter((pr: any) => pr.partido_id === p.id).forEach((pr: any) => {
+              if (!ptsSinFase[pr.usuario_id]) return;
+              const { pts, plenos, aciertos } = calcularPuntos(p, pr);
+              ptsSinFase[pr.usuario_id].pts += pts;
+              ptsSinFase[pr.usuario_id].plenos += plenos;
+              ptsSinFase[pr.usuario_id].aciertos += aciertos;
+            });
+          });
+
+        const rankingAnterior = Object.entries(ptsSinFase)
+          .sort(([, a], [, b]) => b.pts - a.pts || b.plenos - a.plenos || b.aciertos - a.aciertos);
+
+        rankingAnterior.forEach(([id], i) => {
+          if (mapaRanking[id]) mapaRanking[id].posicionAnterior = i;
+        });
+      }
 
       setRanking(Object.values(mapaRanking));
       setCargando(false);
@@ -136,6 +160,9 @@ export default function Ranking() {
           <div>
             <h2 className="text-2xl font-black uppercase tracking-wider">Tabla de Posiciones</h2>
             <p className="text-blue-200 text-sm font-medium">Clasificación: <span className="text-white font-bold">{filtroFase}</span></p>
+            {filtroFase === 'General' && faseEvolucion && (
+              <p className="text-blue-300 text-xs font-medium mt-1">↑↓ movimiento vs fase anterior ({faseEvolucion})</p>
+            )}
           </div>
         </div>
 
@@ -165,10 +192,23 @@ export default function Ranking() {
                     const plenosMostrar = filtroFase === 'General' ? user.plenosTotales : user.puntosPorFase[filtroFase].plenos;
                     const aciertosMostrar = filtroFase === 'General' ? user.aciertosTotales : user.puntosPorFase[filtroFase].aciertos;
 
+                    const delta = filtroFase === 'General' && user.posicionAnterior !== null
+                      ? user.posicionAnterior - index
+                      : null;
+
                     return (
                       <tr key={user.id} className={`border-b border-gray-100 last:border-0 ${esYo ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
-                        <td className="px-3 py-4 flex justify-center items-center">
-                          {obtenerMedalla(index)}
+                        <td className="px-3 py-4 text-center">
+                          <div className="flex flex-col items-center gap-0.5">
+                            {obtenerMedalla(index)}
+                            {delta !== null && (
+                              delta > 0
+                                ? <span className="text-[10px] font-black text-green-600">↑{delta}</span>
+                                : delta < 0
+                                  ? <span className="text-[10px] font-black text-red-500">↓{Math.abs(delta)}</span>
+                                  : <span className="text-[10px] font-bold text-gray-300">—</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-2 py-4">
                           <span className={`font-bold text-lg ${esYo ? 'text-blue-900' : 'text-gray-800'}`}>

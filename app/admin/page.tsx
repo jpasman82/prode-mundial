@@ -192,7 +192,7 @@ export default function AdminPanel() {
   return (
     <div className="min-h-screen bg-gray-900 p-4 font-sans">
       <header className="flex items-center mb-6 gap-4 border-b border-gray-700 pb-4">
-        <Link href="/dashboard" className="text-blue-400 font-bold text-xl hover:text-blue-300">
+        <Link href="/dashboard" className="text-amber-400 font-bold text-xl hover:text-amber-300">
           ← Volver
         </Link>
         <h1 className="text-xl font-bold text-white flex-1">Panel de Control Admin ⚙️</h1>

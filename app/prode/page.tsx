@@ -120,7 +120,7 @@ export default function MiProde({ userId }: { userId: string | null }) {
 
             <div className="flex gap-1.5 flex-shrink-0">
               {bloqueado ? (
-                <div className={`px-3 py-1.5 rounded-lg font-black text-lg border ${pred ? 'bg-blue-50 border-blue-200 text-blue-900' : 'bg-gray-100 border-gray-200 text-gray-400'}`}>
+                <div className={`px-3 py-1.5 rounded-lg font-black text-lg border ${pred ? 'bg-rose-50 border-rose-200 text-rose-900' : 'bg-gray-100 border-gray-200 text-gray-400'}`}>
                   {pred ? `${pred.a} - ${pred.b}` : '? - ?'}
                 </div>
               ) : (
@@ -130,14 +130,14 @@ export default function MiProde({ userId }: { userId: string | null }) {
                     disabled={pendiente}
                     value={pred?.a ?? ''}
                     onChange={e => handleInput(partido.id, 'a', e.target.value)}
-                    className="w-11 h-12 text-center border-2 border-gray-300 rounded-lg font-black text-lg text-blue-900 bg-gray-50 focus:border-blue-500 focus:bg-white disabled:bg-gray-100 disabled:text-gray-300 disabled:border-gray-200 outline-none"
+                    className="w-11 h-12 text-center border-2 border-gray-300 rounded-lg font-black text-lg text-rose-900 bg-gray-50 focus:border-rose-600 focus:bg-white disabled:bg-gray-100 disabled:text-gray-300 disabled:border-gray-200 outline-none"
                   />
                   <input
                     type="number" min="0" max="99"
                     disabled={pendiente}
                     value={pred?.b ?? ''}
                     onChange={e => handleInput(partido.id, 'b', e.target.value)}
-                    className="w-11 h-12 text-center border-2 border-gray-300 rounded-lg font-black text-lg text-blue-900 bg-gray-50 focus:border-blue-500 focus:bg-white disabled:bg-gray-100 disabled:text-gray-300 disabled:border-gray-200 outline-none"
+                    className="w-11 h-12 text-center border-2 border-gray-300 rounded-lg font-black text-lg text-rose-900 bg-gray-50 focus:border-rose-600 focus:bg-white disabled:bg-gray-100 disabled:text-gray-300 disabled:border-gray-200 outline-none"
                   />
                 </>
               )}
@@ -157,7 +157,7 @@ export default function MiProde({ userId }: { userId: string | null }) {
                 className={`flex items-center gap-1.5 px-5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   saved[partido.id]
                     ? 'bg-green-100 text-green-700 border border-green-300'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40'
+                    : 'bg-rose-800 text-white hover:bg-rose-700 disabled:opacity-40'
                 }`}
               >
                 {saved[partido.id]
@@ -190,7 +190,7 @@ export default function MiProde({ userId }: { userId: string | null }) {
                   onClick={() => tiene && setFaseActiva(fase)}
                   className={`px-4 py-3 text-xs font-bold whitespace-nowrap border-b-2 transition-colors ${
                     faseActiva === fase
-                      ? 'border-blue-600 text-blue-700 bg-blue-50'
+                      ? 'border-rose-800 text-rose-900 bg-rose-50'
                       : tiene
                         ? 'border-transparent text-gray-500 hover:text-gray-700'
                         : 'border-transparent text-gray-300 cursor-default'

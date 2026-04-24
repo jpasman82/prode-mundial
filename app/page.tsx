@@ -123,14 +123,14 @@ export default function Home() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-purple-950 text-white font-black uppercase tracking-tighter">
+      <div className="min-h-screen flex items-center justify-center bg-rose-950 text-white font-black uppercase tracking-tighter">
         Cargando la Cancha...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-purple-950 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-rose-950 flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mx-auto mb-4">
@@ -167,7 +167,7 @@ export default function Home() {
               <input
                 type="text"
                 required
-                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-600 outline-none transition text-gray-900 font-black text-lg text-center"
+                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-rose-700 outline-none transition text-gray-900 font-black text-lg text-center"
                 placeholder="Ej: Fran10"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
@@ -178,7 +178,7 @@ export default function Home() {
               <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Provincia</label>
               <select
                 required
-                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-600 outline-none transition text-gray-900 font-bold"
+                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-rose-700 outline-none transition text-gray-900 font-bold"
                 value={provincia}
                 onChange={(e) => setProvincia(e.target.value)}
               >
@@ -192,7 +192,7 @@ export default function Home() {
               <input
                 type="text"
                 required
-                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-600 outline-none transition text-gray-900 font-bold"
+                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-rose-700 outline-none transition text-gray-900 font-bold"
                 placeholder="Ej: La Plata"
                 value={municipio}
                 onChange={(e) => setMunicipio(e.target.value)}
@@ -210,7 +210,7 @@ export default function Home() {
 
             <button
               type="submit"
-              className="w-full bg-purple-700 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-lg uppercase tracking-wide"
+              className="w-full bg-rose-900 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-lg uppercase tracking-wide"
             >
               Comenzar a Jugar
             </button>
@@ -224,7 +224,7 @@ export default function Home() {
         </div>
       </div>
 
-      <p className="mt-8 text-purple-200 text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
+      <p className="mt-8 text-rose-200 text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
         USA · MÉXICO · CANADÁ 2026
       </p>
     </div>

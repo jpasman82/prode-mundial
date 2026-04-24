@@ -44,16 +44,27 @@ export default function Ranking() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) setMiUsuarioId(session.user.id);
 
-      const { data: usuarios } = await supabase.from('usuarios').select('id, nombre_jugador, provincia, municipio');
-      const { data: partidos } = await supabase.from('partidos').select('*').eq('estado', 'Finalizado');
+      // Fetch usuarios — provincia/municipio may be null for older accounts
+      const { data: usuarios } = await supabase
+        .from('usuarios')
+        .select('id, nombre_jugador, provincia, municipio');
+
+      const { data: partidos } = await supabase
+        .from('partidos')
+        .select('*')
+        .eq('estado', 'Finalizado');
+
       const { data: pronosticos } = await supabase.from('pronosticos').select('*');
 
-      if (!usuarios || !partidos || !pronosticos) return;
+      if (!usuarios || !partidos || !pronosticos) {
+        setCargando(false);
+        return;
+      }
 
       const miPerfil = session ? usuarios.find((u: any) => u.id === session.user.id) : null;
       if (miPerfil) {
-        setMiProvincia(miPerfil.provincia || null);
-        setMiMunicipio(miPerfil.municipio || null);
+        setMiProvincia(miPerfil.provincia ?? null);
+        setMiMunicipio(miPerfil.municipio ?? null);
       }
 
       const mapaRanking: Record<string, any> = {};
@@ -62,8 +73,8 @@ export default function Ranking() {
         mapaRanking[u.id] = {
           id: u.id,
           nombre: u.nombre_jugador || 'Jugador',
-          provincia: u.provincia || null,
-          municipio: u.municipio || null,
+          provincia: u.provincia ?? null,
+          municipio: u.municipio ?? null,
           puntosTotales: 0,
           plenosTotales: 0,
           aciertosTotales: 0,
@@ -144,15 +155,14 @@ export default function Ranking() {
     if (ambito === 'Nacional') return true;
     if (!miProvincia) return true;
     if (ambito === 'Provincial') return user.provincia === miProvincia;
-    // Municipal: misma provincia y mismo municipio (case-insensitive)
     return user.provincia === miProvincia &&
       user.municipio?.toLowerCase().trim() === miMunicipio?.toLowerCase().trim();
   });
 
   const obtenerMedalla = (index: number) => {
-    if (index === 0) return <Medal className="text-yellow-500" size={24} />;
+    if (index === 0) return <Medal className="text-amber-500" size={24} />;
     if (index === 1) return <Medal className="text-gray-400" size={24} />;
-    if (index === 2) return <Medal className="text-amber-600" size={24} />;
+    if (index === 2) return <Medal className="text-amber-700" size={24} />;
     return <span className="text-gray-500 font-bold w-6 text-center">{index + 1}°</span>;
   };
 
@@ -171,8 +181,8 @@ export default function Ranking() {
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
             <h3 className="font-black text-xl text-gray-900 mb-5">¿Cómo se puntúa?</h3>
             <div className="space-y-3">
-              <div className="flex items-center gap-4 p-3 bg-purple-50 rounded-xl border border-purple-100">
-                <span className="text-3xl font-black text-purple-700 w-10 text-center">3</span>
+              <div className="flex items-center gap-4 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                <span className="text-3xl font-black text-amber-700 w-10 text-center">3</span>
                 <div>
                   <p className="font-bold text-gray-800">Resultado exacto</p>
                   <p className="text-sm text-gray-500">Acertaste el marcador exacto</p>
@@ -193,7 +203,7 @@ export default function Ranking() {
                 </div>
               </div>
             </div>
-            <button onClick={() => setMostrarInfo(false)} className="mt-5 w-full bg-purple-700 text-white font-bold py-3 rounded-xl">
+            <button onClick={() => setMostrarInfo(false)} className="mt-5 w-full bg-rose-900 text-white font-bold py-3 rounded-xl">
               Entendido
             </button>
           </div>
@@ -206,7 +216,7 @@ export default function Ranking() {
           {fasesFiltro.map(fase => (
             <button
               key={fase} onClick={() => setFiltroFase(fase)}
-              className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg border-2 transition-all ${filtroFase === fase ? 'bg-purple-800 text-white border-purple-800 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-purple-400'}`}
+              className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg border-2 transition-all ${filtroFase === fase ? 'bg-rose-900 text-white border-rose-900 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-rose-400'}`}
             >
               {fase}
             </button>
@@ -217,17 +227,17 @@ export default function Ranking() {
       <div className="max-w-2xl mx-auto p-4">
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-900 to-purple-700 rounded-2xl p-5 text-white shadow-lg mb-4">
+        <div className="bg-gradient-to-r from-rose-950 to-rose-800 rounded-2xl p-5 text-white shadow-lg mb-4">
           <div className="flex items-center gap-4 mb-4">
             <img src="/logo-fdc.png" alt="FDC" className="h-12 w-auto object-contain flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <h2 className="text-xl font-black uppercase tracking-wider">Tabla de Posiciones</h2>
-              <p className="text-purple-200 text-sm font-medium">
+              <p className="text-rose-200 text-sm font-medium">
                 Clasificación: <span className="text-white font-bold">{filtroFase}</span>
-                {' · '}<span className="text-yellow-300 font-bold">{ambitoLabel}</span>
+                {' · '}<span className="text-amber-400 font-bold">{ambitoLabel}</span>
               </p>
               {filtroFase === 'General' && ambito === 'Nacional' && faseEvolucion && (
-                <p className="text-purple-300 text-xs font-medium mt-0.5">↑↓ movimiento vs {faseEvolucion}</p>
+                <p className="text-rose-300 text-xs font-medium mt-0.5">↑↓ movimiento vs {faseEvolucion}</p>
               )}
             </div>
             <button
@@ -246,8 +256,8 @@ export default function Ranking() {
                 onClick={() => setAmbito(a)}
                 className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                   ambito === a
-                    ? 'bg-white text-purple-900'
-                    : 'bg-purple-800/50 text-purple-200 hover:bg-purple-700/50'
+                    ? 'bg-amber-400 text-rose-950'
+                    : 'bg-rose-900/60 text-rose-200 hover:bg-rose-800/60'
                 }`}
               >
                 {a}
@@ -256,11 +266,11 @@ export default function Ranking() {
           </div>
         </div>
 
-        {/* Aviso si no hay provincia/municipio cargado */}
+        {/* Aviso si no hay ubicación */}
         {!miProvincia && ambito !== 'Nacional' && !cargando && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 text-center">
-            <p className="text-yellow-800 font-bold text-sm">Tu cuenta no tiene provincia asignada.</p>
-            <p className="text-yellow-600 text-xs mt-1">Los rankings provinciales y municipales están disponibles para los jugadores que se registraron con su ubicación.</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-center">
+            <p className="text-amber-900 font-bold text-sm">Tu cuenta no tiene provincia asignada.</p>
+            <p className="text-amber-700 text-xs mt-1">Los rankings provinciales y municipales están disponibles para jugadores registrados con su ubicación.</p>
           </div>
         )}
 
@@ -279,14 +289,13 @@ export default function Ranking() {
               const puntosMostrar = filtroFase === 'General' ? user.puntosTotales : user.puntosPorFase[filtroFase].pts;
               const plenosMostrar = filtroFase === 'General' ? user.plenosTotales : user.puntosPorFase[filtroFase].plenos;
               const aciertosMostrar = filtroFase === 'General' ? user.aciertosTotales : user.puntosPorFase[filtroFase].aciertos;
-              // Solo mostrar delta en Nacional, vista General
               const delta = filtroFase === 'General' && ambito === 'Nacional' && user.posicionAnterior !== null
                 ? user.posicionAnterior - index : null;
 
               return (
                 <div
                   key={user.id}
-                  className={`cursor-pointer transition-colors ${esYo ? 'bg-purple-50' : 'hover:bg-gray-50'}`}
+                  className={`cursor-pointer transition-colors ${esYo ? 'bg-rose-50' : 'hover:bg-gray-50'}`}
                   onClick={() => setExpandidoId(expandido ? null : user.id)}
                 >
                   <div className="flex items-center gap-3 px-4 py-3">
@@ -302,10 +311,10 @@ export default function Ranking() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <span className={`font-bold text-base leading-tight ${esYo ? 'text-purple-900' : 'text-gray-800'}`}>
+                      <span className={`font-bold text-base leading-tight ${esYo ? 'text-rose-900' : 'text-gray-800'}`}>
                         {user.nombre}
                       </span>
-                      {esYo && <span className="ml-2 text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-full font-bold uppercase align-middle">Vos</span>}
+                      {esYo && <span className="ml-2 text-[10px] bg-rose-800 text-white px-2 py-0.5 rounded-full font-bold uppercase align-middle">Vos</span>}
                       {ambito === 'Nacional' && user.provincia && (
                         <p className="text-[10px] text-gray-400 font-medium truncate">{user.municipio ? `${user.municipio}, ` : ''}{user.provincia}</p>
                       )}
@@ -314,7 +323,7 @@ export default function Ranking() {
                       )}
                     </div>
 
-                    <span className="font-black text-2xl text-purple-700 flex-shrink-0">{puntosMostrar}</span>
+                    <span className="font-black text-2xl text-amber-600 flex-shrink-0">{puntosMostrar}</span>
                   </div>
 
                   {expandido && (
@@ -325,8 +334,8 @@ export default function Ranking() {
                         <span className="text-xs text-gray-400">(1 pt c/u)</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Target size={14} className="text-purple-600" />
-                        <span className="text-sm font-bold text-purple-700">{plenosMostrar} exactos</span>
+                        <Target size={14} className="text-amber-600" />
+                        <span className="text-sm font-bold text-amber-700">{plenosMostrar} exactos</span>
                         <span className="text-xs text-gray-400">(3 pts c/u)</span>
                       </div>
                     </div>

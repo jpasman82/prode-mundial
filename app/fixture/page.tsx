@@ -149,7 +149,7 @@ export default function Fixture() {
             
             {/* VISTA DE SOLO LECTURA: Goles Reales */}
             <div className="px-3">
-              <span className={`text-lg font-black bg-gray-100 px-3 py-1 rounded-lg border border-gray-200 ${partido.estado === 'Finalizado' ? 'text-blue-900' : 'text-gray-400'}`}>
+              <span className={`text-lg font-black bg-gray-100 px-3 py-1 rounded-lg border border-gray-200 ${partido.estado === 'Finalizado' ? 'text-rose-900' : 'text-gray-400'}`}>
                 {mostrarGolesA} - {mostrarGolesB}
               </span>
             </div>
@@ -167,12 +167,12 @@ export default function Fixture() {
           <div className="p-4 border-t bg-gray-50 border-gray-200 text-center">
             <div className="flex items-start justify-between w-full mb-4 px-2">
               <div className="flex-1 text-center pr-2">
-                <span className="text-sm font-bold text-blue-900 leading-snug break-words">
+                <span className="text-sm font-bold text-rose-900 leading-snug break-words">
                   {partido.equipo_a?.nombre || partido.placeholder_a}
                 </span>
               </div>
               <div className="flex-1 text-center pl-2">
-                <span className="text-sm font-bold text-blue-900 leading-snug break-words">
+                <span className="text-sm font-bold text-rose-900 leading-snug break-words">
                   {partido.equipo_b?.nombre || partido.placeholder_b}
                 </span>
               </div>
@@ -202,8 +202,8 @@ export default function Fixture() {
       <div className="bg-white shadow-sm mb-4">
         <div className="p-3">
           <div className="flex gap-1 p-1 bg-gray-200 rounded-lg">
-            <button onClick={() => setVistaActiva('grupos')} className={`flex-1 py-2 font-bold rounded-md transition-colors ${vistaActiva === 'grupos' ? 'bg-white text-blue-800 shadow' : 'text-gray-700'}`}>Fase de Grupos</button>
-            <button onClick={() => setVistaActiva('eliminatorias')} className={`flex-1 py-2 font-bold rounded-md transition-colors ${vistaActiva === 'eliminatorias' ? 'bg-white text-blue-800 shadow' : 'text-gray-700'}`}>Eliminatorias</button>
+            <button onClick={() => setVistaActiva('grupos')} className={`flex-1 py-2 font-bold rounded-md transition-colors ${vistaActiva === 'grupos' ? 'bg-white text-rose-900 shadow' : 'text-gray-700'}`}>Fase de Grupos</button>
+            <button onClick={() => setVistaActiva('eliminatorias')} className={`flex-1 py-2 font-bold rounded-md transition-colors ${vistaActiva === 'eliminatorias' ? 'bg-white text-rose-900 shadow' : 'text-gray-700'}`}>Eliminatorias</button>
           </div>
         </div>
 
@@ -213,7 +213,7 @@ export default function Fixture() {
               {letrasGrupos.map(l => (
                 <button 
                   key={l} onClick={() => setGrupoSeleccionado(l)}
-                  className={`py-2 font-bold rounded-lg border-2 transition-all ${grupoSeleccionado === l ? 'bg-blue-700 text-white border-blue-700 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-blue-400'}`}
+                  className={`py-2 font-bold rounded-lg border-2 transition-all ${grupoSeleccionado === l ? 'bg-rose-900 text-white border-rose-900 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-rose-400'}`}
                 >
                   {l}
                 </button>
@@ -228,7 +228,7 @@ export default function Fixture() {
               {fasesEliminatorias.map(fase => (
                 <button 
                   key={fase} onClick={() => setFaseEliminatoria(fase)}
-                  className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg border-2 transition-all ${faseEliminatoria === fase ? 'bg-blue-700 text-white border-blue-700 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-blue-400'}`}
+                  className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg border-2 transition-all ${faseEliminatoria === fase ? 'bg-rose-900 text-white border-rose-900 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-rose-400'}`}
                 >
                   {nombresFases[fase]}
                 </button>
@@ -250,7 +250,7 @@ export default function Fixture() {
           <>
             {vistaActiva === 'grupos' && (
                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-300 mb-6">
-                 <div className="bg-blue-800 text-white p-2 text-center">
+                 <div className="bg-rose-950 text-white p-2 text-center">
                    <h2 className="font-bold">Grupo {grupoSeleccionado}</h2>
                  </div>
                  <div className="overflow-x-auto">
@@ -272,7 +272,7 @@ export default function Fixture() {
                              <span className="text-lg">{eq.bandera_url}</span>
                              {eq.nombre}
                            </td>
-                           <td className="px-1 py-2 text-center font-bold text-blue-800">{eq.pts}</td>
+                           <td className="px-1 py-2 text-center font-bold text-amber-600">{eq.pts}</td>
                            <td className="px-1 py-2 text-center text-gray-700">{eq.pj}</td>
                            <td className="px-1 py-2 text-center text-gray-700">{eq.gf}</td>
                            <td className="px-1 py-2 text-center text-gray-700">{eq.gc}</td>

@@ -32,7 +32,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
-      <div className={`fixed inset-y-0 left-0 transform ${menuAbierto ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition duration-200 ease-in-out z-30 w-64 bg-purple-950 text-white p-6 shadow-xl`}>
+      <div className={`fixed inset-y-0 left-0 transform ${menuAbierto ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition duration-200 ease-in-out z-30 w-64 bg-rose-950 text-white p-6 shadow-xl`}>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3 min-w-0">
             <img src="/logo-fdc.png" alt="FDC" className="h-10 w-auto object-contain flex-shrink-0" />
@@ -44,19 +44,19 @@ export default function Dashboard() {
         </div>
 
         <nav className="space-y-3">
-          <button onClick={() => { setPestanaActiva('fixture'); setMenuAbierto(false); }} className={`flex items-center gap-3 w-full p-3 rounded-lg transition font-medium ${pestanaActiva === 'fixture' ? 'bg-purple-700 shadow' : 'hover:bg-purple-900 text-purple-100'}`}>
+          <button onClick={() => { setPestanaActiva('fixture'); setMenuAbierto(false); }} className={`flex items-center gap-3 w-full p-3 rounded-lg transition font-medium ${pestanaActiva === 'fixture' ? 'bg-rose-800 shadow' : 'hover:bg-rose-900 text-rose-100'}`}>
             <Table size={20} /> Fixture Oficial
           </button>
 
-          <button onClick={() => { setPestanaActiva('simulador'); setMenuAbierto(false); }} className={`flex items-center gap-3 w-full p-3 rounded-lg transition font-medium ${pestanaActiva === 'simulador' ? 'bg-purple-700 shadow' : 'hover:bg-purple-900 text-purple-100'}`}>
+          <button onClick={() => { setPestanaActiva('simulador'); setMenuAbierto(false); }} className={`flex items-center gap-3 w-full p-3 rounded-lg transition font-medium ${pestanaActiva === 'simulador' ? 'bg-rose-800 shadow' : 'hover:bg-rose-900 text-rose-100'}`}>
             <Calculator size={20} /> Simulador Mágico
           </button>
 
-          <button onClick={() => { setPestanaActiva('prode'); setMenuAbierto(false); }} className={`flex items-center gap-3 w-full p-3 rounded-lg transition font-medium ${pestanaActiva === 'prode' ? 'bg-purple-700 shadow' : 'hover:bg-purple-900 text-purple-100'}`}>
+          <button onClick={() => { setPestanaActiva('prode'); setMenuAbierto(false); }} className={`flex items-center gap-3 w-full p-3 rounded-lg transition font-medium ${pestanaActiva === 'prode' ? 'bg-rose-800 shadow' : 'hover:bg-rose-900 text-rose-100'}`}>
             <Trophy size={20} /> Mi Prode
           </button>
 
-          <button onClick={() => { setPestanaActiva('ranking'); setMenuAbierto(false); }} className={`flex items-center gap-3 w-full p-3 rounded-lg transition font-medium ${pestanaActiva === 'ranking' ? 'bg-purple-700 shadow' : 'hover:bg-purple-900 text-purple-100'}`}>
+          <button onClick={() => { setPestanaActiva('ranking'); setMenuAbierto(false); }} className={`flex items-center gap-3 w-full p-3 rounded-lg transition font-medium ${pestanaActiva === 'ranking' ? 'bg-rose-800 shadow' : 'hover:bg-rose-900 text-rose-100'}`}>
             <Medal size={20} /> Ranking
           </button>
         </nav>
@@ -71,14 +71,14 @@ export default function Dashboard() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white shadow-sm p-4 flex items-center justify-between z-20">
           <div className="flex items-center gap-4">
-            <button onClick={() => setMenuAbierto(true)} className="md:hidden text-gray-700 hover:text-purple-900 transition">
+            <button onClick={() => setMenuAbierto(true)} className="md:hidden text-gray-700 hover:text-rose-900 transition">
               <Menu size={28} />
             </button>
             <h1 className="text-xl font-black text-gray-800 uppercase tracking-tight">
               {pestanaActiva.replace('prode', 'Mi Prode')}
             </h1>
           </div>
-          <span className="text-sm font-bold text-purple-900 bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
+          <span className="text-sm font-bold text-rose-900 bg-rose-50 px-3 py-1 rounded-full border border-rose-200">
             {userName}
           </span>
         </header>

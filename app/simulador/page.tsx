@@ -151,14 +151,14 @@ export default function Simulador({ userId }: { userId: string | null }) {
               disabled={!listos}
               value={simulacion[p.id]?.a || ''}
               onChange={(e) => handleScore(p.id, 'a', e.target.value)}
-              className="w-12 h-14 text-center border-2 border-gray-400 rounded-lg font-black text-xl text-blue-900 bg-gray-50 focus:border-blue-600 focus:bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
+              className="w-12 h-14 text-center border-2 border-gray-400 rounded-lg font-black text-xl text-rose-900 bg-gray-50 focus:border-rose-700 focus:bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
             />
             <input
               type="number"
               disabled={!listos}
               value={simulacion[p.id]?.b || ''}
               onChange={(e) => handleScore(p.id, 'b', e.target.value)}
-              className="w-12 h-14 text-center border-2 border-gray-400 rounded-lg font-black text-xl text-blue-900 bg-gray-50 focus:border-blue-600 focus:bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
+              className="w-12 h-14 text-center border-2 border-gray-400 rounded-lg font-black text-xl text-rose-900 bg-gray-50 focus:border-rose-700 focus:bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
             />
           </div>
 
@@ -192,13 +192,13 @@ export default function Simulador({ userId }: { userId: string | null }) {
         <div className="flex justify-between items-center max-w-2xl mx-auto">
           <button 
             onClick={() => setPasoIndex(p => Math.max(0, p - 1))} 
-            className={`p-2 ${pasoIndex === 0 ? 'text-transparent' : 'text-blue-600'}`}
+            className={`p-2 ${pasoIndex === 0 ? 'text-transparent' : 'text-rose-800'}`}
           >
             <ChevronLeft size={28} />
           </button>
           
           <div className="text-center">
-            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
+            <span className="text-[10px] font-bold text-rose-800 uppercase tracking-widest">
               Paso {pasoIndex + 1} de {pasosTotales.length}
             </span>
             <h2 className="font-black text-gray-900 text-lg">
@@ -208,13 +208,13 @@ export default function Simulador({ userId }: { userId: string | null }) {
           
           <button 
             onClick={() => setPasoIndex(p => Math.min(pasosTotales.length - 1, p + 1))} 
-            className={`p-2 ${pasoIndex === pasosTotales.length - 1 ? 'text-transparent' : 'text-blue-600'}`}
+            className={`p-2 ${pasoIndex === pasosTotales.length - 1 ? 'text-transparent' : 'text-rose-800'}`}
           >
             <ChevronRight size={28} />
           </button>
         </div>
         <div className="w-full bg-gray-200 h-1.5 mt-3 rounded-full overflow-hidden max-w-2xl mx-auto">
-          <div className="bg-blue-600 h-full transition-all duration-300" style={{ width: `${((pasoIndex + 1) / pasosTotales.length) * 100}%` }}></div>
+          <div className="bg-rose-800 h-full transition-all duration-300" style={{ width: `${((pasoIndex + 1) / pasosTotales.length) * 100}%` }}></div>
         </div>
       </div>
 
@@ -232,11 +232,11 @@ export default function Simulador({ userId }: { userId: string | null }) {
                 </thead>
                 <tbody>
                   {calcularTabla(pasoActual.split(' ')[1]).map((eq: any, i) => (
-                    <tr key={eq.id} className={`border-b border-gray-100 ${i < 2 ? 'bg-green-50' : i === 2 ? 'bg-blue-50' : ''}`}>
+                    <tr key={eq.id} className={`border-b border-gray-100 ${i < 2 ? 'bg-green-50' : i === 2 ? 'bg-rose-50' : ''}`}>
                       <td className="px-3 py-2 font-bold text-gray-900 flex items-center gap-2">
                         <span className="text-gray-400 w-4 text-right">{i + 1}.</span> {eq.bandera_url} {eq.nombre}
                       </td>
-                      <td className="text-center font-black text-blue-700">{eq.pts}</td>
+                      <td className="text-center font-black text-amber-600">{eq.pts}</td>
                       <td className="text-center font-bold text-gray-600">{eq.gd}</td>
                     </tr>
                   ))}
@@ -260,7 +260,7 @@ export default function Simulador({ userId }: { userId: string | null }) {
               </button>
               <button 
                 onClick={() => setPasoIndex(p => p + 1)}
-                className="w-full bg-blue-700 text-white py-4 rounded-xl font-bold text-sm shadow-md active:scale-95 transition flex items-center justify-center gap-2"
+                className="w-full bg-rose-900 text-white py-4 rounded-xl font-bold text-sm shadow-md active:scale-95 transition flex items-center justify-center gap-2"
               >
                 Siguiente Grupo <ArrowRight size={18} />
               </button>
@@ -313,7 +313,7 @@ export default function Simulador({ userId }: { userId: string | null }) {
               </button>
               <button 
                 onClick={() => setPasoIndex(p => p + 1)}
-                className="w-full bg-blue-700 text-white py-4 rounded-xl font-bold text-sm shadow-md active:scale-95 transition flex items-center justify-center gap-2"
+                className="w-full bg-rose-900 text-white py-4 rounded-xl font-bold text-sm shadow-md active:scale-95 transition flex items-center justify-center gap-2"
               >
                 Avanzar de Fase <ArrowRight size={18} />
               </button>

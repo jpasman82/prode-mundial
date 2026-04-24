@@ -122,7 +122,7 @@ export default function Grupos() {
     <div className="min-h-screen bg-gray-100 p-4">
       {/* Cabecera con botón de volver */}
       <header className="flex items-center mb-6 gap-4">
-        <Link href="/dashboard" className="text-blue-600 font-bold text-xl">
+        <Link href="/dashboard" className="text-rose-800 font-bold text-xl">
           ← Volver
         </Link>
         <h1 className="text-xl font-bold text-gray-800">Mis Grupos</h1>
@@ -132,7 +132,7 @@ export default function Grupos() {
         {/* Columna 1: Acciones (Crear / Unirse) */}
         <div className="flex flex-col gap-6">
           {/* Crear Grupo */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border-t-4 border-blue-500">
+          <div className="bg-white p-6 rounded-xl shadow-sm border-t-4 border-rose-800">
             <h2 className="text-lg font-bold mb-4">Crear un Nuevo Grupo</h2>
             <form onSubmit={crearGrupo} className="flex flex-col gap-3">
               <input
@@ -140,10 +140,10 @@ export default function Grupos() {
                 value={nombreNuevoGrupo}
                 onChange={(e) => setNombreNuevoGrupo(e.target.value)}
                 placeholder="Ej: Los pibes del cole"
-                className="w-full border border-gray-300 rounded-lg p-3 outline-none focus:border-blue-500"
+                className="w-full border border-gray-300 rounded-lg p-3 outline-none focus:border-rose-800"
                 required
               />
-              <button type="submit" className="bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">
+              <button type="submit" className="bg-rose-900 text-white font-bold py-3 rounded-lg hover:bg-rose-800 transition">
                 Crear Grupo
               </button>
             </form>
@@ -186,7 +186,7 @@ export default function Grupos() {
                   <div>
                     <h3 className="font-bold text-gray-800">{grupo.nombre}</h3>
                     <p className="text-sm text-gray-500">
-                      Código para invitar: <span className="font-mono font-bold text-blue-600">{grupo.codigo_acceso}</span>
+                      Código para invitar: <span className="font-mono font-bold text-amber-600">{grupo.codigo_acceso}</span>
                     </p>
                   </div>
                 </li>

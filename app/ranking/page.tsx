@@ -29,6 +29,8 @@ export default function Ranking() {
   const [filtroFase, setFiltroFase] = useState('General');
   const [miUsuarioId, setMiUsuarioId] = useState<string | null>(null);
   const [faseEvolucion, setFaseEvolucion] = useState<string | null>(null);
+  const [expandidoId, setExpandidoId] = useState<string | null>(null);
+  const [mostrarInfo, setMostrarInfo] = useState(false);
 
   const fasesFiltro = ['General', 'Fecha 1', 'Fecha 2', 'Fecha 3', '16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Finales'];
 
@@ -141,10 +143,47 @@ export default function Ranking() {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-20">
+
+      {/* Modal de ayuda */}
+      {mostrarInfo && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setMostrarInfo(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="font-black text-xl text-gray-900 mb-5">¿Cómo se puntúa?</h3>
+            <div className="space-y-3">
+              <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                <span className="text-3xl font-black text-blue-700 w-10 text-center">3</span>
+                <div>
+                  <p className="font-bold text-gray-800">Resultado exacto</p>
+                  <p className="text-sm text-gray-500">Acertaste el marcador exacto</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 p-3 bg-green-50 rounded-xl border border-green-100">
+                <span className="text-3xl font-black text-green-700 w-10 text-center">1</span>
+                <div>
+                  <p className="font-bold text-gray-800">Tendencia correcta</p>
+                  <p className="text-sm text-gray-500">Acertaste quién ganó o que fue empate, pero no el marcador</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <span className="text-3xl font-black text-gray-300 w-10 text-center">0</span>
+                <div>
+                  <p className="font-bold text-gray-800">Sin puntos</p>
+                  <p className="text-sm text-gray-500">La tendencia fue incorrecta</p>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setMostrarInfo(false)} className="mt-5 w-full bg-blue-600 text-white font-bold py-3 rounded-xl">
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Filtros de fase */}
       <div className="bg-white shadow-sm p-3 sticky top-0 z-10 border-b border-gray-200">
         <div className="flex overflow-x-auto gap-2 scrollbar-hide pb-1">
           {fasesFiltro.map(fase => (
-            <button 
+            <button
               key={fase} onClick={() => setFiltroFase(fase)}
               className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg border-2 transition-all ${filtroFase === fase ? 'bg-blue-800 text-white border-blue-800 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-blue-400'}`}
             >
@@ -154,83 +193,91 @@ export default function Ranking() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto p-4">
-        <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl p-6 text-white shadow-lg mb-6 flex items-center gap-4">
-          <Trophy size={48} className="text-yellow-400 opacity-90" />
-          <div>
-            <h2 className="text-2xl font-black uppercase tracking-wider">Tabla de Posiciones</h2>
+      <div className="max-w-2xl mx-auto p-4">
+
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl p-5 text-white shadow-lg mb-4 flex items-center gap-4">
+          <Trophy size={40} className="text-yellow-400 opacity-90 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-black uppercase tracking-wider">Tabla de Posiciones</h2>
             <p className="text-blue-200 text-sm font-medium">Clasificación: <span className="text-white font-bold">{filtroFase}</span></p>
             {filtroFase === 'General' && faseEvolucion && (
-              <p className="text-blue-300 text-xs font-medium mt-1">↑↓ movimiento vs fase anterior ({faseEvolucion})</p>
+              <p className="text-blue-300 text-xs font-medium mt-0.5">↑↓ movimiento vs {faseEvolucion}</p>
             )}
           </div>
+          <button
+            onClick={() => setMostrarInfo(true)}
+            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white font-black text-sm flex items-center justify-center flex-shrink-0 transition-colors"
+            title="¿Cómo se calculan los puntos?"
+          >
+            ?
+          </button>
         </div>
 
+        {/* Lista */}
         {cargando ? (
           <p className="text-center font-bold text-gray-500 py-10">Calculando puntos...</p>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left min-w-[500px]">
-                <thead className="bg-gray-100 border-b-2 border-gray-200">
-                  <tr>
-                    <th className="px-3 py-3 text-gray-500 font-bold w-12 text-center">#</th>
-                    <th className="px-2 py-3 text-gray-800 font-bold uppercase text-sm">Jugador</th>
-                    <th className="px-2 py-3 text-center text-green-700 font-bold uppercase text-[10px] tracking-widest" title="Aciertos Simples (1 pt)">
-                      <CheckCircle2 size={16} className="mx-auto mb-1" /> Aciertos
-                    </th>
-                    <th className="px-2 py-3 text-center text-red-600 font-bold uppercase text-[10px] tracking-widest" title="Resultados Exactos (3 pts)">
-                      <Target size={16} className="mx-auto mb-1" /> Exactos
-                    </th>
-                    <th className="px-4 py-3 text-center text-blue-800 font-black uppercase text-sm">PTS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rankingOrdenado.map((user, index) => {
-                    const esYo = user.id === miUsuarioId;
-                    const puntosMostrar = filtroFase === 'General' ? user.puntosTotales : user.puntosPorFase[filtroFase].pts;
-                    const plenosMostrar = filtroFase === 'General' ? user.plenosTotales : user.puntosPorFase[filtroFase].plenos;
-                    const aciertosMostrar = filtroFase === 'General' ? user.aciertosTotales : user.puntosPorFase[filtroFase].aciertos;
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-100">
+            {rankingOrdenado.map((user, index) => {
+              const esYo = user.id === miUsuarioId;
+              const expandido = expandidoId === user.id;
+              const puntosMostrar = filtroFase === 'General' ? user.puntosTotales : user.puntosPorFase[filtroFase].pts;
+              const plenosMostrar = filtroFase === 'General' ? user.plenosTotales : user.puntosPorFase[filtroFase].plenos;
+              const aciertosMostrar = filtroFase === 'General' ? user.aciertosTotales : user.puntosPorFase[filtroFase].aciertos;
+              const delta = filtroFase === 'General' && user.posicionAnterior !== null
+                ? user.posicionAnterior - index : null;
 
-                    const delta = filtroFase === 'General' && user.posicionAnterior !== null
-                      ? user.posicionAnterior - index
-                      : null;
+              return (
+                <div
+                  key={user.id}
+                  className={`cursor-pointer transition-colors ${esYo ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                  onClick={() => setExpandidoId(expandido ? null : user.id)}
+                >
+                  {/* Fila principal */}
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    {/* Posición + delta */}
+                    <div className="w-10 flex flex-col items-center flex-shrink-0">
+                      {obtenerMedalla(index)}
+                      {delta !== null && (
+                        delta > 0
+                          ? <span className="text-[10px] font-black text-green-600 leading-none">↑{delta}</span>
+                          : delta < 0
+                            ? <span className="text-[10px] font-black text-red-500 leading-none">↓{Math.abs(delta)}</span>
+                            : <span className="text-[10px] font-bold text-gray-300 leading-none">—</span>
+                      )}
+                    </div>
 
-                    return (
-                      <tr key={user.id} className={`border-b border-gray-100 last:border-0 ${esYo ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
-                        <td className="px-3 py-4 text-center">
-                          <div className="flex flex-col items-center gap-0.5">
-                            {obtenerMedalla(index)}
-                            {delta !== null && (
-                              delta > 0
-                                ? <span className="text-[10px] font-black text-green-600">↑{delta}</span>
-                                : delta < 0
-                                  ? <span className="text-[10px] font-black text-red-500">↓{Math.abs(delta)}</span>
-                                  : <span className="text-[10px] font-bold text-gray-300">—</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-2 py-4">
-                          <span className={`font-bold text-lg ${esYo ? 'text-blue-900' : 'text-gray-800'}`}>
-                            {user.nombre}
-                          </span>
-                          {esYo && <span className="ml-2 text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold uppercase">Vos</span>}
-                        </td>
-                        <td className="px-2 py-4 text-center font-bold text-green-700 bg-green-50/50">
-                          {aciertosMostrar}
-                        </td>
-                        <td className="px-2 py-4 text-center font-bold text-red-600 bg-red-50/50">
-                          {plenosMostrar}
-                        </td>
-                        <td className="px-4 py-4 text-center font-black text-2xl text-blue-700 bg-blue-50/30">
-                          {puntosMostrar}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    {/* Nombre */}
+                    <div className="flex-1 min-w-0">
+                      <span className={`font-bold text-base leading-tight ${esYo ? 'text-blue-900' : 'text-gray-800'}`}>
+                        {user.nombre}
+                      </span>
+                      {esYo && <span className="ml-2 text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold uppercase align-middle">Vos</span>}
+                    </div>
+
+                    {/* Puntos */}
+                    <span className="font-black text-2xl text-blue-700 flex-shrink-0">{puntosMostrar}</span>
+                  </div>
+
+                  {/* Detalle expandible */}
+                  {expandido && (
+                    <div className="px-4 pb-3 flex gap-6 border-t border-gray-100 pt-2">
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 size={14} className="text-green-600" />
+                        <span className="text-sm font-bold text-green-700">{aciertosMostrar} aciertos</span>
+                        <span className="text-xs text-gray-400">(1 pt c/u)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Target size={14} className="text-blue-600" />
+                        <span className="text-sm font-bold text-blue-700">{plenosMostrar} exactos</span>
+                        <span className="text-xs text-gray-400">(3 pts c/u)</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

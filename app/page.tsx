@@ -2,10 +2,19 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Trophy, ShieldCheck, Zap } from 'lucide-react';
+
+const PROVINCIAS = [
+  'Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba',
+  'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja',
+  'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan',
+  'San Luis', 'Santa Cruz', 'Santa Fe', 'Santiago del Estero',
+  'Tierra del Fuego', 'Tucumán',
+];
 
 export default function Home() {
   const [nombre, setNombre] = useState('');
+  const [provincia, setProvincia] = useState('');
+  const [municipio, setMunicipio] = useState('');
   const [cargando, setCargando] = useState(true);
   const [necesitaUsername, setNecesitaUsername] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -15,10 +24,9 @@ export default function Home() {
   useEffect(() => {
     const chequearUsuario = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session) {
         setUserId(session.user.id);
-        // Verificamos si este usuario de Google ya eligió un nombre en nuestra base
         const { data: perfil } = await supabase
           .from('usuarios')
           .select('nombre_jugador')
@@ -26,22 +34,18 @@ export default function Home() {
           .maybeSingle();
 
         if (perfil) {
-          // Ya tiene nombre, lo mandamos directo a jugar
           router.push('/dashboard');
         } else {
-          // Entró con Google pero es su primera vez, le pedimos el apodo
           setNecesitaUsername(true);
           setCargando(false);
         }
       } else {
-        // No hay sesión de Google iniciada
         setCargando(false);
       }
     };
-    
+
     chequearUsuario();
 
-    // Escuchamos cambios en la autenticación (por si vuelve de la pantalla de Google)
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         setCargando(true);
@@ -61,18 +65,14 @@ export default function Home() {
       }
     });
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    return () => { authListener.subscription.unsubscribe(); };
   }, [router]);
 
   const loginConGoogle = async () => {
     setError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      },
+      options: { redirectTo: `${window.location.origin}/` },
     });
     if (error) setError(error.message);
   };
@@ -86,14 +86,21 @@ export default function Home() {
       setError('El nombre debe tener al menos 3 letras o números.');
       return;
     }
+    if (!provincia) {
+      setError('Tenés que seleccionar tu provincia.');
+      return;
+    }
+    if (municipio.trim().length < 2) {
+      setError('Ingresá el nombre de tu municipio o localidad.');
+      return;
+    }
 
     setCargando(true);
-    
-    // 1. Verificamos si el nombre ya está siendo usado por otro jugador
+
     const { data: existe } = await supabase
       .from('usuarios')
       .select('nombre_jugador')
-      .ilike('nombre_jugador', usernameLimpio) // ilike ignora mayúsculas/minúsculas
+      .ilike('nombre_jugador', usernameLimpio)
       .maybeSingle();
 
     if (existe) {
@@ -102,13 +109,12 @@ export default function Home() {
       return;
     }
 
-    // 2. Si el nombre está libre, lo guardamos asociado a su ID de Google
     const { error: dbError } = await supabase.from('usuarios').insert([
-      { id: userId, nombre_jugador: usernameLimpio }
+      { id: userId, nombre_jugador: usernameLimpio, provincia, municipio: municipio.trim() }
     ]);
 
     if (dbError) {
-      setError('Hubo un error al guardar tu nombre.');
+      setError('Hubo un error al guardar tu perfil.');
       setCargando(false);
     } else {
       router.push('/dashboard');
@@ -117,33 +123,31 @@ export default function Home() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-blue-900 text-white font-black uppercase tracking-tighter">
+      <div className="min-h-screen flex items-center justify-center bg-purple-950 text-white font-black uppercase tracking-tighter">
         Cargando la Cancha...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-blue-900 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-purple-950 flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl">
         <div className="text-center mb-8">
-          <div className="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Trophy className="text-blue-700" size={40} />
+          <div className="flex items-center justify-center mx-auto mb-4">
+            <img src="/logo-fdc.png" alt="Las Fuerzas del Cielo" className="h-24 w-auto object-contain" />
           </div>
           <h1 className="text-3xl font-black text-gray-900 italic tracking-tighter">PRODE 2026</h1>
-          <p className="text-gray-500 font-bold uppercase text-[10px] tracking-widest">
-            {necesitaUsername ? 'Último paso' : 'Viví el mundial con tus amigos'}
+          <p className="text-gray-500 font-bold uppercase text-[10px] tracking-widest mt-1">
+            {necesitaUsername ? 'Último paso — completá tu perfil' : 'Las Fuerzas del Cielo · Mundial 2026'}
           </p>
         </div>
 
-        {/* PANTALLA 1: Botón de Google */}
         {!necesitaUsername ? (
           <div className="space-y-4">
             <button
               onClick={loginConGoogle}
               className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-200 text-gray-700 font-bold py-4 rounded-2xl shadow-sm active:scale-95 transition-all hover:bg-gray-50"
             >
-              {/* Ícono simple de G usando SVG nativo */}
               <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
                 <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
                   <path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z"/>
@@ -157,21 +161,44 @@ export default function Home() {
             {error && <p className="text-red-600 text-xs font-bold text-center mt-2">{error}</p>}
           </div>
         ) : (
-          
-        /* PANTALLA 2: Elegir Nombre de Usuario */
           <form onSubmit={guardarUsername} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Elegí tu nombre de jugador</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Nombre de jugador</label>
               <input
                 type="text"
                 required
-                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-600 outline-none transition text-gray-900 font-black text-lg text-center"
+                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-600 outline-none transition text-gray-900 font-black text-lg text-center"
                 placeholder="Ej: Fran10"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
               />
-              <p className="text-[10px] text-gray-400 text-center mt-2 font-bold uppercase">
-                Este nombre será único y visible en el ranking
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Provincia</label>
+              <select
+                required
+                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-600 outline-none transition text-gray-900 font-bold"
+                value={provincia}
+                onChange={(e) => setProvincia(e.target.value)}
+              >
+                <option value="">Seleccioná tu provincia...</option>
+                {PROVINCIAS.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Municipio / Localidad</label>
+              <input
+                type="text"
+                required
+                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-600 outline-none transition text-gray-900 font-bold"
+                placeholder="Ej: La Plata"
+                value={municipio}
+                onChange={(e) => setMunicipio(e.target.value)}
+              />
+              <p className="text-[10px] text-gray-400 text-center mt-1 font-bold uppercase">
+                Visible en los rankings provincial y municipal
               </p>
             </div>
 
@@ -183,31 +210,22 @@ export default function Home() {
 
             <button
               type="submit"
-              className="w-full bg-blue-700 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-lg uppercase tracking-wide"
+              className="w-full bg-purple-700 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-lg uppercase tracking-wide"
             >
               Comenzar a Jugar
             </button>
           </form>
         )}
 
-        <div className="mt-8 pt-6 border-t border-gray-100 grid grid-cols-3 gap-4">
-          <div className="flex flex-col items-center text-center">
-            <ShieldCheck size={20} className="text-green-600 mb-1" />
-            <span className="text-[9px] font-black text-gray-400 uppercase">Google Auth</span>
-          </div>
-          <div className="flex flex-col items-center text-center border-x border-gray-100">
-            <Trophy size={20} className="text-yellow-500 mb-1" />
-            <span className="text-[9px] font-black text-gray-400 uppercase">Ranking</span>
-          </div>
-          <div className="flex flex-col items-center text-center">
-            <Zap size={20} className="text-blue-600 mb-1" />
-            <span className="text-[9px] font-black text-gray-400 uppercase">En Vivo</span>
-          </div>
+        <div className="mt-6 pt-5 border-t border-gray-100 text-center">
+          <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">
+            Las Fuerzas del Cielo · 2026
+          </p>
         </div>
       </div>
-      
-      <p className="mt-8 text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
-        USA • MÉXICO • CANADÁ 2026
+
+      <p className="mt-8 text-purple-200 text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
+        USA · MÉXICO · CANADÁ 2026
       </p>
     </div>
   );

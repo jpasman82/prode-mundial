@@ -1,9 +1,11 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Trophy, Medal, Target, CheckCircle2 } from 'lucide-react';
+import { Medal, Target, CheckCircle2 } from 'lucide-react';
 
 const FASES_EVOLUCION = ['Fecha 1', 'Fecha 2', 'Fecha 3', '16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Finales'];
+
+type Ambito = 'Nacional' | 'Provincial' | 'Municipal';
 
 function determinarFase(faseReal: string, fechaHoraUtc: string) {
   if (faseReal === 'Fase de Grupos') {
@@ -28,9 +30,12 @@ export default function Ranking() {
   const [cargando, setCargando] = useState(true);
   const [filtroFase, setFiltroFase] = useState('General');
   const [miUsuarioId, setMiUsuarioId] = useState<string | null>(null);
+  const [miProvincia, setMiProvincia] = useState<string | null>(null);
+  const [miMunicipio, setMiMunicipio] = useState<string | null>(null);
   const [faseEvolucion, setFaseEvolucion] = useState<string | null>(null);
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
   const [mostrarInfo, setMostrarInfo] = useState(false);
+  const [ambito, setAmbito] = useState<Ambito>('Nacional');
 
   const fasesFiltro = ['General', 'Fecha 1', 'Fecha 2', 'Fecha 3', '16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Finales'];
 
@@ -39,11 +44,17 @@ export default function Ranking() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) setMiUsuarioId(session.user.id);
 
-      const { data: usuarios } = await supabase.from('usuarios').select('id, nombre_jugador');
+      const { data: usuarios } = await supabase.from('usuarios').select('id, nombre_jugador, provincia, municipio');
       const { data: partidos } = await supabase.from('partidos').select('*').eq('estado', 'Finalizado');
       const { data: pronosticos } = await supabase.from('pronosticos').select('*');
 
       if (!usuarios || !partidos || !pronosticos) return;
+
+      const miPerfil = session ? usuarios.find((u: any) => u.id === session.user.id) : null;
+      if (miPerfil) {
+        setMiProvincia(miPerfil.provincia || null);
+        setMiMunicipio(miPerfil.municipio || null);
+      }
 
       const mapaRanking: Record<string, any> = {};
 
@@ -51,6 +62,8 @@ export default function Ranking() {
         mapaRanking[u.id] = {
           id: u.id,
           nombre: u.nombre_jugador || 'Jugador',
+          provincia: u.provincia || null,
+          municipio: u.municipio || null,
           puntosTotales: 0,
           plenosTotales: 0,
           aciertosTotales: 0,
@@ -77,7 +90,6 @@ export default function Ranking() {
         });
       });
 
-      // Calcular evolución: posición antes de la fase más reciente
       const fasesPresentes = FASES_EVOLUCION.filter(f =>
         partidos.some(p => determinarFase(p.fase, p.fecha_hora) === f)
       );
@@ -86,7 +98,6 @@ export default function Ranking() {
         const faseMasReciente = fasesPresentes[fasesPresentes.length - 1];
         setFaseEvolucion(faseMasReciente);
 
-        // Ranking SIN la fase más reciente
         const ptsSinFase: Record<string, { pts: number; plenos: number; aciertos: number }> = {};
         usuarios.forEach((u: any) => { ptsSinFase[u.id] = { pts: 0, plenos: 0, aciertos: 0 }; });
 
@@ -120,18 +131,22 @@ export default function Ranking() {
   const rankingOrdenado = [...ranking].sort((a, b) => {
     const ptsA = filtroFase === 'General' ? a.puntosTotales : a.puntosPorFase[filtroFase].pts;
     const ptsB = filtroFase === 'General' ? b.puntosTotales : b.puntosPorFase[filtroFase].pts;
-    
-    if (ptsB !== ptsA) return ptsB - ptsA; // 1. Desempata por Puntos
-    
+    if (ptsB !== ptsA) return ptsB - ptsA;
     const plenosA = filtroFase === 'General' ? a.plenosTotales : a.puntosPorFase[filtroFase].plenos;
     const plenosB = filtroFase === 'General' ? b.plenosTotales : b.puntosPorFase[filtroFase].plenos;
-    
-    if (plenosB !== plenosA) return plenosB - plenosA; // 2. Desempata por Exactos
-    
+    if (plenosB !== plenosA) return plenosB - plenosA;
     const aciertosA = filtroFase === 'General' ? a.aciertosTotales : a.puntosPorFase[filtroFase].aciertos;
     const aciertosB = filtroFase === 'General' ? b.aciertosTotales : b.puntosPorFase[filtroFase].aciertos;
-    
-    return aciertosB - aciertosA; // 3. Desempata por Aciertos simples
+    return aciertosB - aciertosA;
+  });
+
+  const rankingFiltrado = rankingOrdenado.filter(user => {
+    if (ambito === 'Nacional') return true;
+    if (!miProvincia) return true;
+    if (ambito === 'Provincial') return user.provincia === miProvincia;
+    // Municipal: misma provincia y mismo municipio (case-insensitive)
+    return user.provincia === miProvincia &&
+      user.municipio?.toLowerCase().trim() === miMunicipio?.toLowerCase().trim();
   });
 
   const obtenerMedalla = (index: number) => {
@@ -140,6 +155,12 @@ export default function Ranking() {
     if (index === 2) return <Medal className="text-amber-600" size={24} />;
     return <span className="text-gray-500 font-bold w-6 text-center">{index + 1}°</span>;
   };
+
+  const ambitoLabel = ambito === 'Provincial' && miProvincia
+    ? miProvincia
+    : ambito === 'Municipal' && miMunicipio
+      ? miMunicipio
+      : ambito;
 
   return (
     <div className="min-h-screen bg-gray-100 pb-20">
@@ -150,8 +171,8 @@ export default function Ranking() {
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
             <h3 className="font-black text-xl text-gray-900 mb-5">¿Cómo se puntúa?</h3>
             <div className="space-y-3">
-              <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                <span className="text-3xl font-black text-blue-700 w-10 text-center">3</span>
+              <div className="flex items-center gap-4 p-3 bg-purple-50 rounded-xl border border-purple-100">
+                <span className="text-3xl font-black text-purple-700 w-10 text-center">3</span>
                 <div>
                   <p className="font-bold text-gray-800">Resultado exacto</p>
                   <p className="text-sm text-gray-500">Acertaste el marcador exacto</p>
@@ -172,20 +193,20 @@ export default function Ranking() {
                 </div>
               </div>
             </div>
-            <button onClick={() => setMostrarInfo(false)} className="mt-5 w-full bg-blue-600 text-white font-bold py-3 rounded-xl">
+            <button onClick={() => setMostrarInfo(false)} className="mt-5 w-full bg-purple-700 text-white font-bold py-3 rounded-xl">
               Entendido
             </button>
           </div>
         </div>
       )}
 
-      {/* Filtros de fase */}
+      {/* Filtro de fase */}
       <div className="bg-white shadow-sm p-3 sticky top-0 z-10 border-b border-gray-200">
         <div className="flex overflow-x-auto gap-2 scrollbar-hide pb-1">
           {fasesFiltro.map(fase => (
             <button
               key={fase} onClick={() => setFiltroFase(fase)}
-              className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg border-2 transition-all ${filtroFase === fase ? 'bg-blue-800 text-white border-blue-800 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-blue-400'}`}
+              className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg border-2 transition-all ${filtroFase === fase ? 'bg-purple-800 text-white border-purple-800 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-purple-400'}`}
             >
               {fase}
             </button>
@@ -196,47 +217,79 @@ export default function Ranking() {
       <div className="max-w-2xl mx-auto p-4">
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl p-5 text-white shadow-lg mb-4 flex items-center gap-4">
-          <Trophy size={40} className="text-yellow-400 opacity-90 flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-black uppercase tracking-wider">Tabla de Posiciones</h2>
-            <p className="text-blue-200 text-sm font-medium">Clasificación: <span className="text-white font-bold">{filtroFase}</span></p>
-            {filtroFase === 'General' && faseEvolucion && (
-              <p className="text-blue-300 text-xs font-medium mt-0.5">↑↓ movimiento vs {faseEvolucion}</p>
-            )}
+        <div className="bg-gradient-to-r from-purple-900 to-purple-700 rounded-2xl p-5 text-white shadow-lg mb-4">
+          <div className="flex items-center gap-4 mb-4">
+            <img src="/logo-fdc.png" alt="FDC" className="h-12 w-auto object-contain flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-black uppercase tracking-wider">Tabla de Posiciones</h2>
+              <p className="text-purple-200 text-sm font-medium">
+                Clasificación: <span className="text-white font-bold">{filtroFase}</span>
+                {' · '}<span className="text-yellow-300 font-bold">{ambitoLabel}</span>
+              </p>
+              {filtroFase === 'General' && ambito === 'Nacional' && faseEvolucion && (
+                <p className="text-purple-300 text-xs font-medium mt-0.5">↑↓ movimiento vs {faseEvolucion}</p>
+              )}
+            </div>
+            <button
+              onClick={() => setMostrarInfo(true)}
+              className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white font-black text-sm flex items-center justify-center flex-shrink-0 transition-colors"
+            >
+              ?
+            </button>
           </div>
-          <button
-            onClick={() => setMostrarInfo(true)}
-            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white font-black text-sm flex items-center justify-center flex-shrink-0 transition-colors"
-            title="¿Cómo se calculan los puntos?"
-          >
-            ?
-          </button>
+
+          {/* Selector de ámbito */}
+          <div className="flex gap-2">
+            {(['Nacional', 'Provincial', 'Municipal'] as Ambito[]).map(a => (
+              <button
+                key={a}
+                onClick={() => setAmbito(a)}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  ambito === a
+                    ? 'bg-white text-purple-900'
+                    : 'bg-purple-800/50 text-purple-200 hover:bg-purple-700/50'
+                }`}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Aviso si no hay provincia/municipio cargado */}
+        {!miProvincia && ambito !== 'Nacional' && !cargando && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 text-center">
+            <p className="text-yellow-800 font-bold text-sm">Tu cuenta no tiene provincia asignada.</p>
+            <p className="text-yellow-600 text-xs mt-1">Los rankings provinciales y municipales están disponibles para los jugadores que se registraron con su ubicación.</p>
+          </div>
+        )}
 
         {/* Lista */}
         {cargando ? (
           <p className="text-center font-bold text-gray-500 py-10">Calculando puntos...</p>
+        ) : rankingFiltrado.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10 text-center">
+            <p className="font-bold text-gray-400">No hay jugadores en tu {ambito === 'Provincial' ? 'provincia' : 'municipio'} todavía.</p>
+          </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-100">
-            {rankingOrdenado.map((user, index) => {
+            {rankingFiltrado.map((user, index) => {
               const esYo = user.id === miUsuarioId;
               const expandido = expandidoId === user.id;
               const puntosMostrar = filtroFase === 'General' ? user.puntosTotales : user.puntosPorFase[filtroFase].pts;
               const plenosMostrar = filtroFase === 'General' ? user.plenosTotales : user.puntosPorFase[filtroFase].plenos;
               const aciertosMostrar = filtroFase === 'General' ? user.aciertosTotales : user.puntosPorFase[filtroFase].aciertos;
-              const delta = filtroFase === 'General' && user.posicionAnterior !== null
+              // Solo mostrar delta en Nacional, vista General
+              const delta = filtroFase === 'General' && ambito === 'Nacional' && user.posicionAnterior !== null
                 ? user.posicionAnterior - index : null;
 
               return (
                 <div
                   key={user.id}
-                  className={`cursor-pointer transition-colors ${esYo ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                  className={`cursor-pointer transition-colors ${esYo ? 'bg-purple-50' : 'hover:bg-gray-50'}`}
                   onClick={() => setExpandidoId(expandido ? null : user.id)}
                 >
-                  {/* Fila principal */}
                   <div className="flex items-center gap-3 px-4 py-3">
-                    {/* Posición + delta */}
                     <div className="w-10 flex flex-col items-center flex-shrink-0">
                       {obtenerMedalla(index)}
                       {delta !== null && (
@@ -248,19 +301,22 @@ export default function Ranking() {
                       )}
                     </div>
 
-                    {/* Nombre */}
                     <div className="flex-1 min-w-0">
-                      <span className={`font-bold text-base leading-tight ${esYo ? 'text-blue-900' : 'text-gray-800'}`}>
+                      <span className={`font-bold text-base leading-tight ${esYo ? 'text-purple-900' : 'text-gray-800'}`}>
                         {user.nombre}
                       </span>
-                      {esYo && <span className="ml-2 text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold uppercase align-middle">Vos</span>}
+                      {esYo && <span className="ml-2 text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-full font-bold uppercase align-middle">Vos</span>}
+                      {ambito === 'Nacional' && user.provincia && (
+                        <p className="text-[10px] text-gray-400 font-medium truncate">{user.municipio ? `${user.municipio}, ` : ''}{user.provincia}</p>
+                      )}
+                      {ambito === 'Provincial' && user.municipio && (
+                        <p className="text-[10px] text-gray-400 font-medium truncate">{user.municipio}</p>
+                      )}
                     </div>
 
-                    {/* Puntos */}
-                    <span className="font-black text-2xl text-blue-700 flex-shrink-0">{puntosMostrar}</span>
+                    <span className="font-black text-2xl text-purple-700 flex-shrink-0">{puntosMostrar}</span>
                   </div>
 
-                  {/* Detalle expandible */}
                   {expandido && (
                     <div className="px-4 pb-3 flex gap-6 border-t border-gray-100 pt-2">
                       <div className="flex items-center gap-1.5">
@@ -269,8 +325,8 @@ export default function Ranking() {
                         <span className="text-xs text-gray-400">(1 pt c/u)</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Target size={14} className="text-blue-600" />
-                        <span className="text-sm font-bold text-blue-700">{plenosMostrar} exactos</span>
+                        <Target size={14} className="text-purple-600" />
+                        <span className="text-sm font-bold text-purple-700">{plenosMostrar} exactos</span>
                         <span className="text-xs text-gray-400">(3 pts c/u)</span>
                       </div>
                     </div>

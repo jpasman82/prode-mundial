@@ -3,7 +3,9 @@
     "allow": [
       "Bash(git init *)",
       "Bash(git remote *)",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(npm run *)",
+      "Bash(cmd.exe /c \"npm run build\")"
     ]
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Trophy, Dices, X, ChevronDown } from 'lucide-react';
+import { Trophy, Dices } from 'lucide-react';
 
 type Equipo = {
   id: string;
@@ -24,7 +24,6 @@ type Partido = {
 
 type Resultado = { a: string; b: string };
 
-const FASES_ELIM = ['16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final'];
 const TABS = [
   { fase: '16vos de Final', label: '16vos' },
   { fase: 'Octavos de Final', label: '8vos' },
@@ -33,16 +32,19 @@ const TABS = [
   { fase: 'Final', label: 'Final' },
 ];
 const LETRAS_GRUPOS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
+const FASES_LLAVE = TABS.map(t => t.fase);
 
 export default function Simulador({ userId }: { userId: string | null }) {
   const [partidos, setPartidos] = useState<Partido[]>([]);
   const [equipos, setEquipos] = useState<Equipo[]>([]);
   const [simulacion, setSimulacion] = useState<Record<string, Resultado>>({});
   const [cargando, setCargando] = useState(true);
+  const [empezado, setEmpezado] = useState(false);
   const [vista, setVista] = useState<'grupos' | 'llave'>('grupos');
   const [grupoActivo, setGrupoActivo] = useState('A');
   const [faseActiva, setFaseActiva] = useState('16vos de Final');
   const [sheetPartidoId, setSheetPartidoId] = useState<string | null>(null);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -197,6 +199,42 @@ export default function Simulador({ userId }: { userId: string | null }) {
     ? datosSimulados.partidos.find((p: any) => p.id === sheetPartidoId)
     : null;
 
+  const onTouchStart = (e: React.TouchEvent) => setTouchStartX(e.touches[0].clientX);
+  const onTouchEnd = (e: React.TouchEvent, cambiador: (delta: number) => void) => {
+    if (touchStartX === null) return;
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) >= 50) cambiador(diff > 0 ? 1 : -1);
+    setTouchStartX(null);
+  };
+
+  // ── Pantalla de inicio ───────────────────────────────────────────────────────
+  if (!empezado) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-6">
+        <div className="max-w-sm w-full space-y-10 text-center">
+          <div>
+            <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em] mb-3">Prode 2026</div>
+            <h1 className="text-4xl font-black text-gray-900 tracking-tight">Simulador</h1>
+            <p className="text-gray-400 text-sm font-medium mt-3 leading-relaxed">
+              Completá todos los resultados vos mismo y descubrí tu campeón del mundo. No se guardan en la DB.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setEmpezado(true)}
+            className="w-full bg-rose-900 text-white py-5 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-all tracking-tight"
+          >
+            Empezar Simulación
+          </button>
+
+          <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">
+            Los resultados no se guardan
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (cargando) {
     return <div className="p-10 text-center font-bold text-gray-700">Cargando Motor de Simulación...</div>;
   }
@@ -207,13 +245,12 @@ export default function Simulador({ userId }: { userId: string | null }) {
       (p: any) => p.fase === 'Fase de Grupos' && p.equipo_a?.grupo === grupoActivo
     );
     const tabla = calcularTabla(grupoActivo);
-    const todosGruposCompletos = LETRAS_GRUPOS.every(g => {
-      const ps = partidos.filter(p => p.fase === 'Fase de Grupos' && p.equipo_a?.grupo === g);
-      return ps.every(p => {
-        const r = simulacion[p.id];
-        return r && r.a !== '' && r.b !== '';
-      });
-    });
+
+    const cambiarGrupo = (delta: number) => {
+      const idx = LETRAS_GRUPOS.indexOf(grupoActivo);
+      const nuevo = idx + delta;
+      if (nuevo >= 0 && nuevo < LETRAS_GRUPOS.length) setGrupoActivo(LETRAS_GRUPOS[nuevo]);
+    };
 
     return (
       <div className="min-h-screen bg-gray-100 pb-24">
@@ -221,7 +258,7 @@ export default function Simulador({ userId }: { userId: string | null }) {
           <div className="px-4 pt-3 pb-2 max-w-2xl mx-auto">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em]">Prode 2026</div>
+                <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em]">Simulador 2026</div>
                 <h1 className="text-[15px] font-black text-gray-900 leading-tight">Fase de grupos</h1>
               </div>
               <div className="flex items-center gap-2">
@@ -241,15 +278,10 @@ export default function Simulador({ userId }: { userId: string | null }) {
           <div className="px-2 pb-2 flex gap-1 overflow-x-auto no-scrollbar max-w-2xl mx-auto">
             {LETRAS_GRUPOS.map(g => {
               const ps = partidos.filter(p => p.fase === 'Fase de Grupos' && p.equipo_a?.grupo === g);
-              const done = ps.filter(p => {
-                const r = simulacion[p.id];
-                return r && r.a !== '' && r.b !== '';
-              }).length;
+              const done = ps.filter(p => { const r = simulacion[p.id]; return r && r.a !== '' && r.b !== ''; }).length;
               const active = grupoActivo === g;
               return (
-                <button
-                  key={g}
-                  onClick={() => setGrupoActivo(g)}
+                <button key={g} onClick={() => setGrupoActivo(g)}
                   className={`flex-shrink-0 h-9 w-14 rounded-lg text-[11px] font-bold flex flex-col items-center justify-center ${
                     active ? 'bg-rose-900 text-white shadow' : 'bg-white text-gray-600 border border-gray-200'
                   }`}
@@ -262,7 +294,11 @@ export default function Simulador({ userId }: { userId: string | null }) {
           </div>
         </div>
 
-        <div className="p-4 max-w-2xl mx-auto space-y-4">
+        <div
+          className="p-4 max-w-2xl mx-auto space-y-4"
+          onTouchStart={onTouchStart}
+          onTouchEnd={(e) => onTouchEnd(e, cambiarGrupo)}
+        >
           <div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-800 text-white text-[10px] uppercase tracking-wide">
@@ -299,14 +335,10 @@ export default function Simulador({ userId }: { userId: string | null }) {
             ))}
           </div>
 
-          {todosGruposCompletos && (
-            <button
-              onClick={() => setVista('llave')}
-              className="w-full bg-rose-900 text-white py-4 rounded-xl font-bold text-sm shadow-md active:scale-95 transition flex items-center justify-center gap-2"
-            >
-              <Trophy size={18} /> Ver llave eliminatoria
-            </button>
-          )}
+          <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-1">
+            <span>{LETRAS_GRUPOS.indexOf(grupoActivo) > 0 ? `← Grupo ${LETRAS_GRUPOS[LETRAS_GRUPOS.indexOf(grupoActivo) - 1]}` : ''}</span>
+            <span>{LETRAS_GRUPOS.indexOf(grupoActivo) < LETRAS_GRUPOS.length - 1 ? `Grupo ${LETRAS_GRUPOS[LETRAS_GRUPOS.indexOf(grupoActivo) + 1]} →` : ''}</span>
+          </div>
         </div>
       </div>
     );
@@ -316,10 +348,10 @@ export default function Simulador({ userId }: { userId: string | null }) {
   const partidosFase = (fase: string) =>
     datosSimulados.partidos.filter((p: any) => p.fase === fase);
 
-  const splitFase = (fase: string) => {
-    const ps = partidosFase(fase);
-    const mitad = Math.ceil(ps.length / 2);
-    return { izq: ps.slice(0, mitad), der: ps.slice(mitad) };
+  const cambiarFase = (delta: number) => {
+    const idx = FASES_LLAVE.indexOf(faseActiva);
+    const nuevo = idx + delta;
+    if (nuevo >= 0 && nuevo < FASES_LLAVE.length) setFaseActiva(FASES_LLAVE[nuevo]);
   };
 
   return (
@@ -328,7 +360,7 @@ export default function Simulador({ userId }: { userId: string | null }) {
         <div className="px-4 pt-3 pb-2 max-w-2xl mx-auto">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em]">Prode 2026</div>
+              <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em]">Simulador 2026</div>
               <h1 className="text-[15px] font-black text-gray-900 leading-tight">Llave eliminatoria</h1>
             </div>
             <div className="flex items-center gap-2">
@@ -356,13 +388,11 @@ export default function Simulador({ userId }: { userId: string | null }) {
 
         <div className="px-2 pb-2 flex gap-1 overflow-x-auto no-scrollbar max-w-2xl mx-auto">
           {TABS.map(t => {
-            const active = faseActiva === t.fase;
             const ps = partidosFase(t.fase);
             const done = ps.filter((p: any) => matchInfo(p).decidido).length;
+            const active = faseActiva === t.fase;
             return (
-              <button
-                key={t.fase}
-                onClick={() => setFaseActiva(t.fase)}
+              <button key={t.fase} onClick={() => setFaseActiva(t.fase)}
                 className={`flex-shrink-0 h-9 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 ${
                   active ? 'bg-rose-900 text-white shadow' : 'bg-white text-gray-600 border border-gray-200'
                 }`}
@@ -377,7 +407,11 @@ export default function Simulador({ userId }: { userId: string | null }) {
         </div>
       </div>
 
-      <div className="p-3 max-w-2xl mx-auto space-y-3">
+      <div
+        className="p-3 max-w-2xl mx-auto space-y-3"
+        onTouchStart={onTouchStart}
+        onTouchEnd={(e) => onTouchEnd(e, cambiarFase)}
+      >
         <MiniBracket
           datosSimulados={datosSimulados}
           matchInfo={matchInfo}
@@ -386,27 +420,23 @@ export default function Simulador({ userId }: { userId: string | null }) {
         />
 
         {faseActiva === 'Final' ? (
-          <div className="space-y-3">
+          <div className="space-y-3 max-w-sm mx-auto">
             <div className="text-center">
               <div className="text-[10px] font-black uppercase tracking-[0.25em] text-rose-800">La gran final</div>
             </div>
-            <div className="max-w-sm mx-auto space-y-2">
-              {partidosFase('Final').map((p: any) => (
-                <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
-              ))}
-            </div>
+            {partidosFase('Final').map((p: any) => (
+              <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
+            ))}
             {partidosFase('Tercer Puesto').length > 0 && (
               <div className="pt-3">
                 <div className="text-center text-[9px] font-black uppercase tracking-[0.22em] text-gray-500 mb-2">🥉 Tercer puesto</div>
-                <div className="max-w-sm mx-auto">
-                  {partidosFase('Tercer Puesto').map((p: any) => (
-                    <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
-                  ))}
-                </div>
+                {partidosFase('Tercer Puesto').map((p: any) => (
+                  <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
+                ))}
               </div>
             )}
             {campeon && (
-              <div className="p-6 rounded-2xl bg-gradient-to-b from-amber-50 via-white to-white border-2 border-amber-200 text-center">
+              <div className="p-6 rounded-2xl bg-gradient-to-b from-amber-50 via-white to-white border-2 border-amber-200 text-center mt-4">
                 <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-700 mb-1">Campeón del Mundo 2026</div>
                 <Trophy size={48} className="mx-auto text-amber-500 mb-2" />
                 <div className="text-5xl mb-1">{campeon.bandera_url}</div>
@@ -415,21 +445,17 @@ export default function Simulador({ userId }: { userId: string | null }) {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <div className="text-[9px] font-black uppercase tracking-[0.22em] text-gray-400 text-center mb-1">Lado izquierdo</div>
-              {splitFase(faseActiva).izq.map((p: any) => (
-                <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
-              ))}
-            </div>
-            <div className="space-y-1.5">
-              <div className="text-[9px] font-black uppercase tracking-[0.22em] text-gray-400 text-center mb-1">Lado derecho</div>
-              {splitFase(faseActiva).der.map((p: any) => (
-                <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
-              ))}
-            </div>
+          <div className="space-y-2">
+            {partidosFase(faseActiva).map((p: any) => (
+              <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
+            ))}
           </div>
         )}
+
+        <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-1">
+          <span>{FASES_LLAVE.indexOf(faseActiva) > 0 ? `← ${TABS[FASES_LLAVE.indexOf(faseActiva) - 1]?.label}` : ''}</span>
+          <span>{FASES_LLAVE.indexOf(faseActiva) < FASES_LLAVE.length - 1 ? `${TABS[FASES_LLAVE.indexOf(faseActiva) + 1]?.label} →` : ''}</span>
+        </div>
       </div>
 
       {sheetPartido && (
@@ -459,13 +485,13 @@ function FilaPartidoGrupos({ p, sim, onScore }: { p: any; sim?: Resultado; onSco
         </div>
         <div className="flex gap-1.5 flex-shrink-0">
           <input
-            type="number"
+            type="number" inputMode="numeric"
             value={sim?.a || ''}
             onChange={(e) => onScore(p.id, 'a', e.target.value)}
             className="w-12 h-12 text-center border-2 border-gray-300 rounded-lg font-black text-lg text-rose-900 bg-gray-50 focus:border-rose-700 focus:bg-white outline-none"
           />
           <input
-            type="number"
+            type="number" inputMode="numeric"
             value={sim?.b || ''}
             onChange={(e) => onScore(p.id, 'b', e.target.value)}
             className="w-12 h-12 text-center border-2 border-gray-300 rounded-lg font-black text-lg text-rose-900 bg-gray-50 focus:border-rose-700 focus:bg-white outline-none"
@@ -490,14 +516,12 @@ function MatchCard({ p, info, onClick }: { p: any; info: any; onClick: () => voi
   const winB = decidido && ganador?.id === eqB?.id;
 
   const Row = ({ eq, label, score, winner, loser }: any) => (
-    <div className={`flex items-center gap-1.5 px-1.5 py-1.5 transition-all ${
-      winner ? 'bg-rose-50' : loser ? 'opacity-40' : ''
-    }`}>
-      <span className="text-base leading-none flex-shrink-0 w-5 text-center">{eq ? eq.bandera_url : '·'}</span>
-      <span className={`flex-1 min-w-0 truncate text-[11px] ${
+    <div className={`flex items-center gap-2 px-3 py-2 transition-all ${winner ? 'bg-rose-50' : loser ? 'opacity-40' : ''}`}>
+      <span className="text-lg leading-none flex-shrink-0 w-6 text-center">{eq ? eq.bandera_url : '·'}</span>
+      <span className={`flex-1 min-w-0 truncate text-sm ${
         eq ? (winner ? 'font-black text-rose-900' : 'font-semibold text-gray-800') : 'text-gray-400 font-medium italic'
       }`}>{label}</span>
-      <span className={`flex-shrink-0 w-5 text-center text-[12px] font-black tabular-nums ${
+      <span className={`flex-shrink-0 w-5 text-center text-sm font-black tabular-nums ${
         cargado ? (winner ? 'text-rose-900' : 'text-gray-400') : 'text-gray-300'
       }`}>{cargado && score !== undefined ? score : '·'}</span>
     </div>
@@ -506,74 +530,55 @@ function MatchCard({ p, info, onClick }: { p: any; info: any; onClick: () => voi
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left bg-white border rounded-lg overflow-hidden shadow-sm hover:border-rose-400 hover:shadow active:scale-[0.99] transition-all ${
-        decidido ? 'border-rose-200' : listo ? 'border-gray-300' : 'border-gray-200 border-dashed'
+      className={`w-full text-left bg-white border rounded-xl overflow-hidden shadow-sm hover:border-rose-400 active:scale-[0.99] transition-all ${
+        decidido ? 'border-rose-200' : listo ? 'border-gray-300' : 'border-dashed border-gray-200'
       }`}
     >
       <Row eq={eqA} label={labelA} score={ga} winner={winA} loser={decidido && !winA} />
-      <div className="h-px bg-gray-100"></div>
+      <div className="h-px bg-gray-100 mx-3"></div>
       <Row eq={eqB} label={labelB} score={gb} winner={winB} loser={decidido && !winB} />
     </button>
   );
 }
 
 function MiniBracket({ datosSimulados, matchInfo, faseActiva, onSelectFase }: any) {
-  const fases: { fase: string; side: 'izq'|'der'|'center'; label: string }[] = [
-    { fase: '16vos de Final', side: 'izq', label: '16vos' },
-    { fase: 'Octavos de Final', side: 'izq', label: '8vos' },
-    { fase: 'Cuartos de Final', side: 'izq', label: '4tos' },
-    { fase: 'Semifinal', side: 'izq', label: 'SF' },
-    { fase: 'Final', side: 'center', label: 'Final' },
-    { fase: 'Semifinal', side: 'der', label: 'SF' },
-    { fase: 'Cuartos de Final', side: 'der', label: '4tos' },
-    { fase: 'Octavos de Final', side: 'der', label: '8vos' },
-    { fase: '16vos de Final', side: 'der', label: '16vos' },
+  const FASES = [
+    { fase: '16vos de Final', label: '16vos' },
+    { fase: 'Octavos de Final', label: '8vos' },
+    { fase: 'Cuartos de Final', label: '4tos' },
+    { fase: 'Semifinal', label: 'SF' },
+    { fase: 'Final', label: 'Final' },
   ];
 
-  const getPs = (fase: string, side: 'izq'|'der'|'center') => {
-    const ps = datosSimulados.partidos.filter((p: any) => p.fase === fase);
-    if (side === 'center') return ps;
-    const mitad = Math.ceil(ps.length / 2);
-    return side === 'izq' ? ps.slice(0, mitad) : ps.slice(mitad);
-  };
-
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-2 overflow-x-auto">
-      <div className="flex items-stretch gap-1 min-w-max">
-        {fases.map((col, i) => {
-          const ps = getPs(col.fase, col.side);
-          const isActive = col.fase === faseActiva;
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-2">
+      <div className="flex gap-1">
+        {FASES.map(f => {
+          const ps = datosSimulados.partidos.filter((p: any) => p.fase === f.fase);
+          const done = ps.filter((p: any) => matchInfo(p).decidido).length;
+          const isActive = faseActiva === f.fase;
           return (
-            <div
-              key={`${col.fase}-${col.side}-${i}`}
-              onClick={() => onSelectFase(col.fase)}
-              className={`cursor-pointer flex flex-col justify-around gap-1 rounded-lg px-1 py-1.5 ${
-                isActive ? 'bg-rose-50 ring-1 ring-rose-200' : ''
-              } transition-colors`}
+            <button
+              key={f.fase}
+              onClick={() => onSelectFase(f.fase)}
+              className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-colors ${isActive ? 'bg-rose-50 ring-1 ring-rose-200' : ''}`}
             >
-              <div className={`text-[8px] font-black uppercase text-center tracking-wider ${
-                isActive ? 'text-rose-800' : 'text-gray-400'
-              }`}>{col.label}</div>
-              <div className="flex flex-col gap-1 justify-around flex-1">
+              <div className={`text-[8px] font-black uppercase tracking-wider mb-1.5 ${isActive ? 'text-rose-800' : 'text-gray-400'}`}>{f.label}</div>
+              <div className="flex flex-col gap-0.5">
                 {ps.map((p: any) => {
                   const m = matchInfo(p);
                   return (
-                    <div
-                      key={p.id}
-                      className={`w-8 h-5 rounded flex items-center justify-center text-[9px] font-black tabular-nums transition-colors duration-300 ${
-                        m.decidido ? 'bg-rose-900 text-white' :
-                        m.cargado ? 'bg-amber-200 text-amber-900' :
-                        m.listo ? 'bg-gray-100 text-gray-500 border border-gray-200' :
-                        'bg-gray-50 text-gray-300 border border-dashed border-gray-200'
-                      }`}
-                      title={p.codigo_partido}
-                    >
-                      {m.eqA?.bandera_url || '·'}
-                    </div>
+                    <div key={p.id} className={`h-1.5 rounded-sm w-full ${
+                      m.decidido ? 'bg-rose-900' :
+                      m.cargado ? 'bg-amber-300' :
+                      m.listo ? 'bg-gray-300' :
+                      'bg-gray-100'
+                    }`} />
                   );
                 })}
               </div>
-            </div>
+              <div className={`text-[8px] font-black mt-1.5 tabular-nums ${isActive ? 'text-rose-700' : 'text-gray-400'}`}>{done}/{ps.length}</div>
+            </button>
           );
         })}
       </div>

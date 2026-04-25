@@ -1,299 +1,273 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ChevronDown, ChevronUp, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
+
+const LETRAS_GRUPOS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
+const FASES_TABS = [
+  { fase: '16vos de Final', label: '16vos' },
+  { fase: 'Octavos de Final', label: '8vos' },
+  { fase: 'Cuartos de Final', label: '4tos' },
+  { fase: 'Semifinal', label: 'Semi' },
+  { fase: 'Tercer Puesto', label: '3er P.' },
+  { fase: 'Final', label: 'Final' },
+];
+const FASES_LLAVE = FASES_TABS.map(f => f.fase);
 
 export default function Fixture() {
   const [partidos, setPartidos] = useState<any[]>([]);
   const [equipos, setEquipos] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [partidoExpandido, setPartidoExpandido] = useState<string | null>(null);
-
-  const [vistaActiva, setVistaActiva] = useState<'grupos' | 'eliminatorias'>('grupos');
-  const [grupoSeleccionado, setGrupoSeleccionado] = useState('A');
-  const [faseEliminatoria, setFaseEliminatoria] = useState('16vos de Final');
-
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
-
-  const letrasGrupos = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-  const fasesEliminatorias = ['16vos de Final', 'Octavos de Final', 'Cuartos de Final', 'Semifinal', 'Tercer Puesto', 'Final'];
-  const nombresFases: Record<string, string> = {
-    '16vos de Final': '16vos',
-    'Octavos de Final': 'Octavos',
-    'Cuartos de Final': 'Cuartos',
-    'Semifinal': 'Semis',
-    'Tercer Puesto': '3er Puesto',
-    'Final': 'Final'
-  };
+  const [vista, setVista] = useState<'grupos' | 'llave'>('grupos');
+  const [grupoActivo, setGrupoActivo] = useState('A');
+  const [faseActiva, setFaseActiva] = useState('16vos de Final');
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   useEffect(() => {
-    const inicializar = async () => {
-      const { data: equiposData } = await supabase.from('equipos').select('*').order('nombre');
-      if (equiposData) setEquipos(equiposData);
-
-      const { data: partidosData } = await supabase
+    const cargar = async () => {
+      const { data: eq } = await supabase.from('equipos').select('*').order('nombre');
+      const { data: par } = await supabase
         .from('partidos')
         .select(`
-          id, fecha_hora, fase, estado, goles_a, goles_b, estadio, ciudad, placeholder_a, placeholder_b,
-          equipo_a_id, equipo_b_id,
+          id, fecha_hora, fase, estado, goles_a, goles_b, estadio, ciudad,
+          placeholder_a, placeholder_b, equipo_a_id, equipo_b_id,
           equipo_a:equipos!equipo_a_id(id, nombre, bandera_url, grupo),
           equipo_b:equipos!equipo_b_id(id, nombre, bandera_url, grupo)
         `)
         .order('fecha_hora', { ascending: true });
-
-      if (partidosData) setPartidos(partidosData);
+      if (eq) setEquipos(eq);
+      if (par) setPartidos(par);
       setCargando(false);
     };
-    inicializar();
+    cargar();
   }, []);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const minSwipeDistance = 50;
-
-    if (vistaActiva === 'grupos') {
-      const currentIndex = letrasGrupos.indexOf(grupoSeleccionado);
-      if (distance > minSwipeDistance && currentIndex < letrasGrupos.length - 1) {
-        setGrupoSeleccionado(letrasGrupos[currentIndex + 1]);
-      } else if (distance < -minSwipeDistance && currentIndex > 0) {
-        setGrupoSeleccionado(letrasGrupos[currentIndex - 1]);
-      }
-    } else if (vistaActiva === 'eliminatorias') {
-      const currentIndex = fasesEliminatorias.indexOf(faseEliminatoria);
-      if (distance > minSwipeDistance && currentIndex < fasesEliminatorias.length - 1) {
-        setFaseEliminatoria(fasesEliminatorias[currentIndex + 1]);
-      } else if (distance < -minSwipeDistance && currentIndex > 0) {
-        setFaseEliminatoria(fasesEliminatorias[currentIndex - 1]);
-      }
-    }
-  };
-
-  const toggleExpandir = (id: string) => {
-    setPartidoExpandido(partidoExpandido === id ? null : id);
-  };
-
-  const calcularTablaPosiciones = (grupo: string) => {
+  const tabla = useMemo(() => {
     const stats: Record<string, any> = {};
-    equipos.filter(eq => eq.grupo === grupo).forEach(eq => {
-      stats[eq.id] = { ...eq, pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, pts: 0 };
+    equipos.filter(e => e.grupo === grupoActivo).forEach(e => {
+      stats[e.id] = { ...e, pj: 0, pts: 0, gd: 0, gf: 0 };
     });
-
     partidos.forEach(p => {
-      if (p.estado === 'Finalizado' && p.equipo_a_id && p.equipo_b_id) {
-        const a = p.equipo_a_id;
-        const b = p.equipo_b_id;
-        if (stats[a] && stats[b]) {
-          stats[a].pj += 1; stats[b].pj += 1;
-          stats[a].gf += p.goles_a; stats[a].gc += p.goles_b;
-          stats[b].gf += p.goles_b; stats[b].gc += p.goles_a;
-          if (p.goles_a > p.goles_b) { stats[a].pg += 1; stats[a].pts += 3; stats[b].pp += 1; } 
-          else if (p.goles_b > p.goles_a) { stats[b].pg += 1; stats[b].pts += 3; stats[a].pp += 1; } 
-          else { stats[a].pe += 1; stats[b].pe += 1; stats[a].pts += 1; stats[b].pts += 1; }
-        }
+      if (p.estado === 'Finalizado' && stats[p.equipo_a_id] && stats[p.equipo_b_id]) {
+        const a = p.equipo_a_id, b = p.equipo_b_id;
+        stats[a].pj++; stats[b].pj++;
+        stats[a].gf += p.goles_a; stats[a].gd += (p.goles_a - p.goles_b);
+        stats[b].gf += p.goles_b; stats[b].gd += (p.goles_b - p.goles_a);
+        if (p.goles_a > p.goles_b) stats[a].pts += 3;
+        else if (p.goles_b > p.goles_a) stats[b].pts += 3;
+        else { stats[a].pts += 1; stats[b].pts += 1; }
       }
     });
+    return Object.values(stats).sort((a: any, b: any) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+  }, [equipos, partidos, grupoActivo]);
 
-    return Object.values(stats).sort((a: any, b: any) => {
-      if (b.pts !== a.pts) return b.pts - a.pts;
-      const difB = b.gf - b.gc; const difA = a.gf - a.gc;
-      if (difB !== difA) return difB - difA;
-      return b.gf - a.gf;
-    });
+  const onTouchStart = (e: React.TouchEvent) => setTouchStartX(e.touches[0].clientX);
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) < 50) { setTouchStartX(null); return; }
+    if (vista === 'grupos') {
+      const idx = LETRAS_GRUPOS.indexOf(grupoActivo);
+      if (diff > 0 && idx < LETRAS_GRUPOS.length - 1) setGrupoActivo(LETRAS_GRUPOS[idx + 1]);
+      else if (diff < 0 && idx > 0) setGrupoActivo(LETRAS_GRUPOS[idx - 1]);
+    } else {
+      const idx = FASES_LLAVE.indexOf(faseActiva);
+      if (diff > 0 && idx < FASES_LLAVE.length - 1) setFaseActiva(FASES_LLAVE[idx + 1]);
+      else if (diff < 0 && idx > 0) setFaseActiva(FASES_LLAVE[idx - 1]);
+    }
+    setTouchStartX(null);
   };
 
-  const renderizarFilaPartido = (partido: any) => {
-    const esExpandido = partidoExpandido === partido.id;
-    const equiposOk = partido.equipo_a && partido.equipo_b;
-    
-    const fechaObj = new Date(partido.fecha_hora);
-    const hora = fechaObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
-    const fecha = fechaObj.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
+  if (cargando) {
+    return <div className="p-10 text-center font-bold text-gray-700">Cargando fixture oficial...</div>;
+  }
 
-    // Mostramos goles oficiales (si el partido está finalizado) o un guión si está pendiente
-    const mostrarGolesA = partido.estado === 'Finalizado' && partido.goles_a !== null ? partido.goles_a : '-';
-    const mostrarGolesB = partido.estado === 'Finalizado' && partido.goles_b !== null ? partido.goles_b : '-';
-
-    return (
-      <div key={partido.id} className="mb-3 overflow-hidden bg-white border border-gray-300 rounded-xl shadow-sm">
-        <div 
-          onClick={() => toggleExpandir(partido.id)}
-          className="flex flex-col p-3 cursor-pointer active:bg-gray-100"
-        >
-          <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide capitalize">
-              🗓️ {fecha.replace('.', '')} • {hora}
-            </span>
-            <div className="text-gray-400">
-              {esExpandido ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center justify-end flex-1 gap-2 min-w-0">
-              <span className="text-sm font-bold text-gray-900 truncate leading-tight text-right">
-                {partido.equipo_a?.nombre || partido.placeholder_a}
-              </span>
-              <span className="text-2xl flex-shrink-0">{partido.equipo_a?.bandera_url || '🛡️'}</span>
-            </div>
-            
-            {/* VISTA DE SOLO LECTURA: Goles Reales */}
-            <div className="px-3">
-              <span className={`text-lg font-black bg-gray-100 px-3 py-1 rounded-lg border border-gray-200 ${partido.estado === 'Finalizado' ? 'text-rose-900' : 'text-gray-400'}`}>
-                {mostrarGolesA} - {mostrarGolesB}
-              </span>
-            </div>
-            
-            <div className="flex items-center justify-start flex-1 gap-2 min-w-0">
-              <span className="text-2xl flex-shrink-0">{partido.equipo_b?.bandera_url || '🛡️'}</span>
-              <span className="text-sm font-bold text-gray-900 truncate leading-tight text-left">
-                {partido.equipo_b?.nombre || partido.placeholder_b}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {esExpandido && (
-          <div className="p-4 border-t bg-gray-50 border-gray-200 text-center">
-            <div className="flex items-start justify-between w-full mb-4 px-2">
-              <div className="flex-1 text-center pr-2">
-                <span className="text-sm font-bold text-rose-900 leading-snug break-words">
-                  {partido.equipo_a?.nombre || partido.placeholder_a}
-                </span>
-              </div>
-              <div className="flex-1 text-center pl-2">
-                <span className="text-sm font-bold text-rose-900 leading-snug break-words">
-                  {partido.equipo_b?.nombre || partido.placeholder_b}
-                </span>
-              </div>
-            </div>
-
-            {partido.estadio && (
-              <div className="flex justify-center items-center gap-1 text-xs font-bold text-gray-600 mb-2">
-                <MapPin size={14} /> {partido.estadio}, {partido.ciudad}
-              </div>
-            )}
-            
-            <div className="text-xs font-bold uppercase tracking-wider text-gray-500 mt-2">
-              Estado: <span className={partido.estado === 'Finalizado' ? 'text-green-600' : 'text-orange-500'}>{partido.estado}</span>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const partidosFiltrados = vistaActiva === 'grupos' 
-    ? partidos.filter(p => p.fase === 'Fase de Grupos' && (p.equipo_a?.grupo === grupoSeleccionado || p.equipo_b?.grupo === grupoSeleccionado))
-    : partidos.filter(p => p.fase === faseEliminatoria);
+  const partidosGrupo = partidos.filter(p => p.fase === 'Fase de Grupos' && p.equipo_a?.grupo === grupoActivo);
+  const partidosFase = partidos.filter(p => p.fase === faseActiva);
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-20">
-      <div className="bg-white shadow-sm mb-4">
-        <div className="p-3">
-          <div className="flex gap-1 p-1 bg-gray-200 rounded-lg">
-            <button onClick={() => setVistaActiva('grupos')} className={`flex-1 py-2 font-bold rounded-md transition-colors ${vistaActiva === 'grupos' ? 'bg-white text-rose-900 shadow' : 'text-gray-700'}`}>Fase de Grupos</button>
-            <button onClick={() => setVistaActiva('eliminatorias')} className={`flex-1 py-2 font-bold rounded-md transition-colors ${vistaActiva === 'eliminatorias' ? 'bg-white text-rose-900 shadow' : 'text-gray-700'}`}>Eliminatorias</button>
+    <div className="min-h-screen bg-gray-100 pb-24">
+      {/* Header */}
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-gray-200">
+        <div className="px-4 pt-3 pb-2 max-w-2xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em]">Prode 2026</div>
+              <h1 className="text-[15px] font-black text-gray-900 leading-tight">
+                {vista === 'grupos' ? 'Fase de grupos' : 'Llave eliminatoria'}
+              </h1>
+            </div>
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+              <button
+                onClick={() => setVista('grupos')}
+                className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${vista === 'grupos' ? 'bg-white text-rose-900 shadow' : 'text-gray-500'}`}
+              >
+                Grupos
+              </button>
+              <button
+                onClick={() => setVista('llave')}
+                className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${vista === 'llave' ? 'bg-white text-rose-900 shadow' : 'text-gray-500'}`}
+              >
+                Llave
+              </button>
+            </div>
           </div>
         </div>
 
-        {vistaActiva === 'grupos' && (
-          <div className="px-3 pb-4">
-            <div className="grid grid-cols-6 gap-2">
-              {letrasGrupos.map(l => (
-                <button 
-                  key={l} onClick={() => setGrupoSeleccionado(l)}
-                  className={`py-2 font-bold rounded-lg border-2 transition-all ${grupoSeleccionado === l ? 'bg-rose-900 text-white border-rose-900 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-rose-400'}`}
+        {vista === 'grupos' ? (
+          <div className="px-2 pb-2 flex gap-1 overflow-x-auto no-scrollbar max-w-2xl mx-auto">
+            {LETRAS_GRUPOS.map(g => {
+              const ps = partidos.filter(p => p.fase === 'Fase de Grupos' && p.equipo_a?.grupo === g);
+              const done = ps.filter(p => p.estado === 'Finalizado').length;
+              const active = grupoActivo === g;
+              return (
+                <button key={g} onClick={() => setGrupoActivo(g)}
+                  className={`flex-shrink-0 h-9 w-14 rounded-lg text-[11px] font-bold flex flex-col items-center justify-center ${
+                    active ? 'bg-rose-900 text-white shadow' : 'bg-white text-gray-600 border border-gray-200'
+                  }`}
                 >
-                  {l}
+                  <span>Grupo {g}</span>
+                  <span className={`text-[8px] ${active ? 'text-rose-200' : 'text-gray-400'}`}>{done}/{ps.length}</span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        )}
-
-        {vistaActiva === 'eliminatorias' && (
-          <div className="px-3 pb-4">
-            <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide">
-              {fasesEliminatorias.map(fase => (
-                <button 
-                  key={fase} onClick={() => setFaseEliminatoria(fase)}
-                  className={`whitespace-nowrap px-4 py-2 font-bold rounded-lg border-2 transition-all ${faseEliminatoria === fase ? 'bg-rose-900 text-white border-rose-900 shadow-md' : 'bg-gray-50 text-gray-700 border-gray-300 hover:border-rose-400'}`}
+        ) : (
+          <div className="px-2 pb-2 flex gap-1 overflow-x-auto no-scrollbar max-w-2xl mx-auto">
+            {FASES_TABS.map(t => {
+              const ps = partidos.filter(p => p.fase === t.fase);
+              const done = ps.filter(p => p.estado === 'Finalizado').length;
+              const active = faseActiva === t.fase;
+              return (
+                <button key={t.fase} onClick={() => setFaseActiva(t.fase)}
+                  className={`flex-shrink-0 h-9 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 ${
+                    active ? 'bg-rose-900 text-white shadow' : 'bg-white text-gray-600 border border-gray-200'
+                  }`}
                 >
-                  {nombresFases[fase]}
+                  <span>{t.label}</span>
+                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full tabular-nums ${
+                    active ? 'bg-rose-700 text-rose-100' : 'bg-gray-100 text-gray-500'
+                  }`}>{done}/{ps.length}</span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      <div 
-        className="p-4 max-w-2xl mx-auto"
+      <div
+        className="p-4 max-w-2xl mx-auto space-y-4"
         onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {cargando ? (
-          <p className="mt-10 font-bold text-center text-gray-700">Cargando datos oficiales...</p>
+        {vista === 'grupos' ? (
+          <>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-800 text-white text-[10px] uppercase tracking-wide">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Grupo {grupoActivo}</th>
+                    <th className="px-1 py-2 text-center">PTS</th>
+                    <th className="px-1 py-2 text-center">PJ</th>
+                    <th className="px-1 py-2 text-center">DIF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tabla.map((eq: any, i) => (
+                    <tr key={eq.id} className={`border-b border-gray-100 ${i < 2 ? 'bg-green-50' : i === 2 ? 'bg-rose-50' : ''}`}>
+                      <td className="px-3 py-2 font-bold text-gray-900">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
+                          <span className="text-xl">{eq.bandera_url}</span>
+                          <span>{eq.nombre}</span>
+                        </div>
+                      </td>
+                      <td className="text-center font-black text-amber-600">{eq.pts}</td>
+                      <td className="text-center font-bold text-gray-500">{eq.pj}</td>
+                      <td className="text-center font-bold text-gray-600">{eq.gd >= 0 ? '+' : ''}{eq.gd}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="bg-gray-50 p-2 text-[10px] text-gray-500 text-center font-medium border-t">
+                Los 2 primeros y los 8 mejores terceros avanzan.
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {partidosGrupo.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-1">
+              <span>{LETRAS_GRUPOS.indexOf(grupoActivo) > 0 ? `← Grupo ${LETRAS_GRUPOS[LETRAS_GRUPOS.indexOf(grupoActivo) - 1]}` : ''}</span>
+              <span>{LETRAS_GRUPOS.indexOf(grupoActivo) < LETRAS_GRUPOS.length - 1 ? `Grupo ${LETRAS_GRUPOS[LETRAS_GRUPOS.indexOf(grupoActivo) + 1]} →` : ''}</span>
+            </div>
+          </>
         ) : (
           <>
-            {vistaActiva === 'grupos' && (
-               <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-300 mb-6">
-                 <div className="bg-rose-950 text-white p-2 text-center">
-                   <h2 className="font-bold">Grupo {grupoSeleccionado}</h2>
-                 </div>
-                 <div className="overflow-x-auto">
-                   <table className="w-full text-sm text-left">
-                     <thead className="bg-gray-100 text-gray-800 border-b-2 border-gray-300">
-                       <tr>
-                         <th className="px-3 py-2">País</th>
-                         <th className="px-1 py-2 text-center">PTS</th>
-                         <th className="px-1 py-2 text-center text-gray-600">PJ</th>
-                         <th className="px-1 py-2 text-center text-gray-600">GF</th>
-                         <th className="px-1 py-2 text-center text-gray-600">GC</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       {calcularTablaPosiciones(grupoSeleccionado).map((eq: any, index: number) => (
-                         <tr key={eq.id} className="border-b border-gray-200 last:border-0">
-                           <td className="px-3 py-2 flex items-center gap-2 font-bold text-gray-900">
-                             <span className="text-gray-500">{index + 1}.</span>
-                             <span className="text-lg">{eq.bandera_url}</span>
-                             {eq.nombre}
-                           </td>
-                           <td className="px-1 py-2 text-center font-bold text-amber-600">{eq.pts}</td>
-                           <td className="px-1 py-2 text-center text-gray-700">{eq.pj}</td>
-                           <td className="px-1 py-2 text-center text-gray-700">{eq.gf}</td>
-                           <td className="px-1 py-2 text-center text-gray-700">{eq.gc}</td>
-                         </tr>
-                       ))}
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
-            )}
-
-            <div className="flex flex-col">
-              {partidosFiltrados.length > 0 ? (
-                partidosFiltrados.map(renderizarFilaPartido)
+            <div className="space-y-2">
+              {partidosFase.length > 0 ? (
+                partidosFase.map(p => <FixtureMatchCard key={p.id} partido={p} />)
               ) : (
-                <p className="text-center text-gray-500">No hay partidos.</p>
+                <p className="text-center text-gray-400 font-bold py-10">Sin partidos en esta ronda aún.</p>
               )}
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-1">
+              <span>{FASES_LLAVE.indexOf(faseActiva) > 0 ? `← ${FASES_TABS[FASES_LLAVE.indexOf(faseActiva) - 1]?.label}` : ''}</span>
+              <span>{FASES_LLAVE.indexOf(faseActiva) < FASES_LLAVE.length - 1 ? `${FASES_TABS[FASES_LLAVE.indexOf(faseActiva) + 1]?.label} →` : ''}</span>
             </div>
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function FixtureMatchCard({ partido }: { partido: any }) {
+  const finalizado = partido.estado === 'Finalizado';
+  const eqA = partido.equipo_a;
+  const eqB = partido.equipo_b;
+  const labelA = eqA?.nombre || partido.placeholder_a || '?';
+  const labelB = eqB?.nombre || partido.placeholder_b || '?';
+  const draw = finalizado && partido.goles_a === partido.goles_b;
+  const winA = finalizado && partido.goles_a > partido.goles_b;
+  const winB = finalizado && partido.goles_b > partido.goles_a;
+
+  const fechaObj = new Date(partido.fecha_hora);
+  const hora = fechaObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const fechaStr = fechaObj.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  return (
+    <div className={`bg-white border rounded-xl shadow-sm overflow-hidden ${finalizado ? 'border-gray-200' : 'border-dashed border-gray-200'}`}>
+      <div className="px-3 py-1.5 flex items-center justify-between border-b border-gray-100">
+        <span className="text-[10px] font-bold text-gray-400 capitalize">{fechaStr.replace(/\./g, '')} · {hora}</span>
+        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+          finalizado ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+        }`}>{finalizado ? 'Final' : 'Pendiente'}</span>
+      </div>
+      <div className="flex items-center px-3 py-2.5 gap-2">
+        <div className={`flex-1 flex items-center justify-end gap-2 min-w-0 transition-opacity ${finalizado && !draw && !winA ? 'opacity-40' : ''}`}>
+          <span className="text-sm font-bold truncate text-right text-gray-900">{labelA}</span>
+          <span className="text-xl flex-shrink-0">{eqA?.bandera_url || '·'}</span>
+        </div>
+        <div className="flex-shrink-0 w-16 text-center">
+          {finalizado ? (
+            <span className="text-base font-black text-rose-900 tabular-nums">{partido.goles_a} - {partido.goles_b}</span>
+          ) : (
+            <span className="text-xs font-bold text-gray-300">vs</span>
+          )}
+        </div>
+        <div className={`flex-1 flex items-center gap-2 min-w-0 transition-opacity ${finalizado && !draw && !winB ? 'opacity-40' : ''}`}>
+          <span className="text-xl flex-shrink-0">{eqB?.bandera_url || '·'}</span>
+          <span className="text-sm font-bold truncate text-gray-900">{labelB}</span>
+        </div>
+      </div>
+      {partido.estadio && (
+        <div className="px-3 pb-2 text-[9px] text-gray-400 flex items-center gap-1 font-medium">
+          <MapPin size={9} /> {partido.estadio}, {partido.ciudad}
+        </div>
+      )}
     </div>
   );
 }

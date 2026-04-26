@@ -32,7 +32,12 @@ const TABS = [
   { fase: 'Final', label: 'Final' },
 ];
 const LETRAS_GRUPOS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
-const FASES_LLAVE = TABS.map(t => t.fase);
+const FASES_BRACKET = [
+  { fase: '16vos de Final', label: '16vos' },
+  { fase: 'Octavos de Final', label: '8vos' },
+  { fase: 'Cuartos de Final', label: '4tos' },
+  { fase: 'Semifinal', label: 'Semi' },
+];
 
 export default function Simulador({ userId }: { userId: string | null }) {
   const [partidos, setPartidos] = useState<Partido[]>([]);
@@ -43,6 +48,7 @@ export default function Simulador({ userId }: { userId: string | null }) {
   const [vista, setVista] = useState<'grupos' | 'llave'>('grupos');
   const [grupoActivo, setGrupoActivo] = useState('A');
   const [faseActiva, setFaseActiva] = useState('16vos de Final');
+  const [ladoSeleccionado, setLadoSeleccionado] = useState<'izq' | 'der' | null>(null);
   const [sheetPartidoId, setSheetPartidoId] = useState<string | null>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
@@ -345,28 +351,36 @@ export default function Simulador({ userId }: { userId: string | null }) {
   }
 
   // ── VISTA: LLAVE ─────────────────────────────────────────────────────────────
-  const partidosFase = (fase: string) =>
-    datosSimulados.partidos.filter((p: any) => p.fase === fase);
-
-  const cambiarFase = (delta: number) => {
-    const idx = FASES_LLAVE.indexOf(faseActiva);
-    const nuevo = idx + delta;
-    if (nuevo >= 0 && nuevo < FASES_LLAVE.length) setFaseActiva(FASES_LLAVE[nuevo]);
+  const getSide = (fase: string, side: 'izq' | 'der') => {
+    const ps = datosSimulados.partidos.filter((p: any) => p.fase === fase);
+    const mid = Math.ceil(ps.length / 2);
+    return side === 'izq' ? ps.slice(0, mid) : ps.slice(mid);
   };
+
+  const finalPs = datosSimulados.partidos.filter((p: any) => p.fase === 'Final');
+  const tercerPs = datosSimulados.partidos.filter((p: any) => p.fase === 'Tercer Puesto');
 
   return (
     <div className="min-h-screen bg-gray-100 pb-24">
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-gray-200">
-        <div className="px-4 pt-3 pb-2 max-w-2xl mx-auto">
+        <div className="px-4 pt-3 pb-3 max-w-2xl mx-auto">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em]">Simulador 2026</div>
-              <h1 className="text-[15px] font-black text-gray-900 leading-tight">Llave eliminatoria</h1>
+              <h1 className="text-[15px] font-black text-gray-900 leading-tight">
+                {ladoSeleccionado ? (ladoSeleccionado === 'izq' ? 'Lado A' : 'Lado B') : 'Llave eliminatoria'}
+              </h1>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setVista('grupos')} className="h-8 px-2.5 rounded-lg bg-white text-gray-600 border border-gray-200 text-[11px] font-bold active:scale-95">
-                ← Grupos
-              </button>
+              {ladoSeleccionado ? (
+                <button onClick={() => setLadoSeleccionado(null)} className="h-8 px-2.5 rounded-lg bg-white text-gray-600 border border-gray-200 text-[11px] font-bold active:scale-95">
+                  ← Bracket
+                </button>
+              ) : (
+                <button onClick={() => setVista('grupos')} className="h-8 px-2.5 rounded-lg bg-white text-gray-600 border border-gray-200 text-[11px] font-bold active:scale-95">
+                  ← Grupos
+                </button>
+              )}
               <button onClick={llenarAlAzar} className="h-8 px-2.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 text-[11px] font-bold flex items-center gap-1 active:scale-95">
                 <Dices size={14} /> Dados
               </button>
@@ -375,68 +389,90 @@ export default function Simulador({ userId }: { userId: string | null }) {
               </button>
             </div>
           </div>
-
           <div className="mt-2 flex items-center gap-2">
             <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-rose-700 to-rose-900 transition-all duration-500" style={{ width: `${progreso.pct}%` }}></div>
             </div>
-            <div className="text-[10px] font-bold text-gray-500 tabular-nums">
-              {progreso.completos}/{progreso.total}
-            </div>
+            <div className="text-[10px] font-bold text-gray-500 tabular-nums">{progreso.completos}/{progreso.total}</div>
           </div>
-        </div>
-
-        <div className="px-2 pb-2 flex gap-1 overflow-x-auto no-scrollbar max-w-2xl mx-auto">
-          {TABS.map(t => {
-            const ps = partidosFase(t.fase);
-            const done = ps.filter((p: any) => matchInfo(p).decidido).length;
-            const active = faseActiva === t.fase;
-            return (
-              <button key={t.fase} onClick={() => setFaseActiva(t.fase)}
-                className={`flex-shrink-0 h-9 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 ${
-                  active ? 'bg-rose-900 text-white shadow' : 'bg-white text-gray-600 border border-gray-200'
-                }`}
-              >
-                <span>{t.label}</span>
-                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full tabular-nums ${
-                  active ? 'bg-rose-700 text-rose-100' : 'bg-gray-100 text-gray-500'
-                }`}>{done}/{ps.length}</span>
-              </button>
-            );
-          })}
         </div>
       </div>
 
-      <div
-        className="p-3 max-w-2xl mx-auto space-y-3"
-        onTouchStart={onTouchStart}
-        onTouchEnd={(e) => onTouchEnd(e, cambiarFase)}
-      >
-        <MiniBracket
-          datosSimulados={datosSimulados}
-          matchInfo={matchInfo}
-          faseActiva={faseActiva}
-          onSelectFase={setFaseActiva}
-        />
-
-        {faseActiva === 'Final' ? (
-          <div className="space-y-3 max-w-sm mx-auto">
-            <div className="text-center">
-              <div className="text-[10px] font-black uppercase tracking-[0.25em] text-rose-800">La gran final</div>
+      <div className="p-3 max-w-2xl mx-auto space-y-3">
+        {ladoSeleccionado ? (
+          // ── Zoomed: un lado ───────────────────────────────────────────────
+          <div className="space-y-4">
+            {FASES_BRACKET.map(f => {
+              const ps = getSide(f.fase, ladoSeleccionado);
+              if (ps.length === 0) return null;
+              return (
+                <div key={f.fase}>
+                  <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">{f.label}</div>
+                  <div className="space-y-2">
+                    {ps.map((p: any) => (
+                      <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          // ── Overview: bracket completo ────────────────────────────────────
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              {(['izq', 'der'] as const).map(lado => (
+                <button
+                  key={lado}
+                  onClick={() => setLadoSeleccionado(lado)}
+                  className="flex-1 bg-white rounded-2xl border-2 border-gray-200 p-3 active:scale-[0.98] hover:border-rose-300 transition-all text-left"
+                >
+                  <div className="text-[9px] font-black uppercase tracking-wide text-center mb-2.5 text-gray-500">
+                    {lado === 'izq' ? 'Lado A' : 'Lado B'}
+                  </div>
+                  {FASES_BRACKET.map(f => {
+                    const ps = getSide(f.fase, lado);
+                    if (ps.length === 0) return null;
+                    return (
+                      <div key={f.fase} className="mb-2">
+                        <div className="text-[7px] font-black uppercase text-gray-300 mb-0.5 tracking-wide">{f.label}</div>
+                        <div className="space-y-0.5">
+                          {ps.map((p: any) => {
+                            const info = matchInfo(p);
+                            const ga = info.res?.a !== '' && info.res?.a !== undefined ? parseInt(info.res.a) : undefined;
+                            const gb = info.res?.b !== '' && info.res?.b !== undefined ? parseInt(info.res.b) : undefined;
+                            return <MiniMatchTile key={p.id} eqA={info.eqA} eqB={info.eqB} scoreA={ga} scoreB={gb} decided={info.decidido} />;
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="text-center mt-2 text-[8px] font-black text-rose-800 uppercase tracking-wide">
+                    Ver detalle →
+                  </div>
+                </button>
+              ))}
             </div>
-            {partidosFase('Final').map((p: any) => (
-              <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
-            ))}
-            {partidosFase('Tercer Puesto').length > 0 && (
-              <div className="pt-3">
-                <div className="text-center text-[9px] font-black uppercase tracking-[0.22em] text-gray-500 mb-2">🥉 Tercer puesto</div>
-                {partidosFase('Tercer Puesto').map((p: any) => (
+
+            <div>
+              <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 text-center mb-2">🏆 Final</div>
+              <div className="max-w-sm mx-auto space-y-2">
+                {finalPs.map((p: any) => (
                   <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
                 ))}
+                {tercerPs.length > 0 && (
+                  <>
+                    <div className="text-center text-[8px] font-black text-gray-400 uppercase tracking-wide pt-1">🥉 Tercer puesto</div>
+                    {tercerPs.map((p: any) => (
+                      <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
+                    ))}
+                  </>
+                )}
               </div>
-            )}
+            </div>
+
             {campeon && (
-              <div className="p-6 rounded-2xl bg-gradient-to-b from-amber-50 via-white to-white border-2 border-amber-200 text-center mt-4">
+              <div className="p-6 rounded-2xl bg-gradient-to-b from-amber-50 via-white to-white border-2 border-amber-200 text-center">
                 <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-700 mb-1">Campeón del Mundo 2026</div>
                 <Trophy size={48} className="mx-auto text-amber-500 mb-2" />
                 <div className="text-5xl mb-1">{campeon.bandera_url}</div>
@@ -444,18 +480,7 @@ export default function Simulador({ userId }: { userId: string | null }) {
               </div>
             )}
           </div>
-        ) : (
-          <div className="space-y-2">
-            {partidosFase(faseActiva).map((p: any) => (
-              <MatchCard key={p.id} p={p} info={matchInfo(p)} onClick={() => setSheetPartidoId(p.id)} />
-            ))}
-          </div>
         )}
-
-        <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-1">
-          <span>{FASES_LLAVE.indexOf(faseActiva) > 0 ? `← ${TABS[FASES_LLAVE.indexOf(faseActiva) - 1]?.label}` : ''}</span>
-          <span>{FASES_LLAVE.indexOf(faseActiva) < FASES_LLAVE.length - 1 ? `${TABS[FASES_LLAVE.indexOf(faseActiva) + 1]?.label} →` : ''}</span>
-        </div>
       </div>
 
       {sheetPartido && (
@@ -541,47 +566,15 @@ function MatchCard({ p, info, onClick }: { p: any; info: any; onClick: () => voi
   );
 }
 
-function MiniBracket({ datosSimulados, matchInfo, faseActiva, onSelectFase }: any) {
-  const FASES = [
-    { fase: '16vos de Final', label: '16vos' },
-    { fase: 'Octavos de Final', label: '8vos' },
-    { fase: 'Cuartos de Final', label: '4tos' },
-    { fase: 'Semifinal', label: 'SF' },
-    { fase: 'Final', label: 'Final' },
-  ];
-
+function MiniMatchTile({ eqA, eqB, scoreA, scoreB, decided }: any) {
+  const hasScore = scoreA !== undefined && scoreB !== undefined && !isNaN(scoreA) && !isNaN(scoreB);
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-2">
-      <div className="flex gap-1">
-        {FASES.map(f => {
-          const ps = datosSimulados.partidos.filter((p: any) => p.fase === f.fase);
-          const done = ps.filter((p: any) => matchInfo(p).decidido).length;
-          const isActive = faseActiva === f.fase;
-          return (
-            <button
-              key={f.fase}
-              onClick={() => onSelectFase(f.fase)}
-              className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-colors ${isActive ? 'bg-rose-50 ring-1 ring-rose-200' : ''}`}
-            >
-              <div className={`text-[8px] font-black uppercase tracking-wider mb-1.5 ${isActive ? 'text-rose-800' : 'text-gray-400'}`}>{f.label}</div>
-              <div className="flex flex-col gap-0.5">
-                {ps.map((p: any) => {
-                  const m = matchInfo(p);
-                  return (
-                    <div key={p.id} className={`h-1.5 rounded-sm w-full ${
-                      m.decidido ? 'bg-rose-900' :
-                      m.cargado ? 'bg-amber-300' :
-                      m.listo ? 'bg-gray-300' :
-                      'bg-gray-100'
-                    }`} />
-                  );
-                })}
-              </div>
-              <div className={`text-[8px] font-black mt-1.5 tabular-nums ${isActive ? 'text-rose-700' : 'text-gray-400'}`}>{done}/{ps.length}</div>
-            </button>
-          );
-        })}
-      </div>
+    <div className={`flex items-center gap-1 px-1 py-0.5 rounded leading-none ${decided ? 'bg-rose-50' : ''}`}>
+      <span className="w-5 text-center text-sm">{eqA?.bandera_url || '·'}</span>
+      <span className={`text-[8px] font-black tabular-nums flex-1 text-center ${
+        hasScore ? (decided ? 'text-rose-900' : 'text-amber-600') : 'text-gray-200'
+      }`}>{hasScore ? `${scoreA}-${scoreB}` : '-'}</span>
+      <span className="w-5 text-center text-sm">{eqB?.bandera_url || '·'}</span>
     </div>
   );
 }

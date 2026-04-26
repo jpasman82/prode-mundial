@@ -13,6 +13,12 @@ const FASES_TABS = [
   { fase: 'Final', label: 'Final' },
 ];
 const FASES_LLAVE = FASES_TABS.map(f => f.fase);
+const FASES_BRACKET = [
+  { fase: '16vos de Final', label: '16vos' },
+  { fase: 'Octavos de Final', label: '8vos' },
+  { fase: 'Cuartos de Final', label: '4tos' },
+  { fase: 'Semifinal', label: 'Semi' },
+];
 
 export default function Fixture() {
   const [partidos, setPartidos] = useState<any[]>([]);
@@ -21,6 +27,7 @@ export default function Fixture() {
   const [vista, setVista] = useState<'grupos' | 'llave'>('grupos');
   const [grupoActivo, setGrupoActivo] = useState('A');
   const [faseActiva, setFaseActiva] = useState('16vos de Final');
+  const [ladoSeleccionado, setLadoSeleccionado] = useState<'izq' | 'der' | null>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   useEffect(() => {
@@ -94,7 +101,7 @@ export default function Fixture() {
             <div>
               <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em]">Prode 2026</div>
               <h1 className="text-[15px] font-black text-gray-900 leading-tight">
-                {vista === 'grupos' ? 'Fase de grupos' : 'Llave eliminatoria'}
+                {vista === 'grupos' ? 'Fase de grupos' : ladoSeleccionado ? (ladoSeleccionado === 'izq' ? 'Lado A' : 'Lado B') : 'Llave eliminatoria'}
               </h1>
             </div>
             <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
@@ -132,27 +139,7 @@ export default function Fixture() {
               );
             })}
           </div>
-        ) : (
-          <div className="px-2 pb-2 flex gap-1 overflow-x-auto no-scrollbar max-w-2xl mx-auto">
-            {FASES_TABS.map(t => {
-              const ps = partidos.filter(p => p.fase === t.fase);
-              const done = ps.filter(p => p.estado === 'Finalizado').length;
-              const active = faseActiva === t.fase;
-              return (
-                <button key={t.fase} onClick={() => setFaseActiva(t.fase)}
-                  className={`flex-shrink-0 h-9 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 ${
-                    active ? 'bg-rose-900 text-white shadow' : 'bg-white text-gray-600 border border-gray-200'
-                  }`}
-                >
-                  <span>{t.label}</span>
-                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full tabular-nums ${
-                    active ? 'bg-rose-700 text-rose-100' : 'bg-gray-100 text-gray-500'
-                  }`}>{done}/{ps.length}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        ) : null}
       </div>
 
       <div
@@ -193,33 +180,118 @@ export default function Fixture() {
                 Los 2 primeros y los 8 mejores terceros avanzan.
               </div>
             </div>
-
             <div className="space-y-2">
               {partidosGrupo.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
             </div>
-
             <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-1">
               <span>{LETRAS_GRUPOS.indexOf(grupoActivo) > 0 ? `← Grupo ${LETRAS_GRUPOS[LETRAS_GRUPOS.indexOf(grupoActivo) - 1]}` : ''}</span>
               <span>{LETRAS_GRUPOS.indexOf(grupoActivo) < LETRAS_GRUPOS.length - 1 ? `Grupo ${LETRAS_GRUPOS[LETRAS_GRUPOS.indexOf(grupoActivo) + 1]} →` : ''}</span>
             </div>
           </>
+        ) : ladoSeleccionado ? (
+          // ── Zoomed: un lado ───────────────────────────────────────────────
+          <div className="space-y-4">
+            <button onClick={() => setLadoSeleccionado(null)} className="text-[11px] font-bold text-gray-500 hover:text-rose-800 transition">
+              ← Bracket completo
+            </button>
+            {FASES_BRACKET.map(f => {
+              const ps = partidos.filter(p => p.fase === f.fase);
+              const mid = Math.ceil(ps.length / 2);
+              const side = ladoSeleccionado === 'izq' ? ps.slice(0, mid) : ps.slice(mid);
+              if (side.length === 0) return null;
+              return (
+                <div key={f.fase}>
+                  <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">{f.label}</div>
+                  <div className="space-y-2">
+                    {side.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
-          <>
-            <div className="space-y-2">
-              {partidosFase.length > 0 ? (
-                partidosFase.map(p => <FixtureMatchCard key={p.id} partido={p} />)
-              ) : (
-                <p className="text-center text-gray-400 font-bold py-10">Sin partidos en esta ronda aún.</p>
-              )}
+          // ── Overview: bracket completo ────────────────────────────────────
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              {(['izq', 'der'] as const).map(lado => (
+                <button
+                  key={lado}
+                  onClick={() => setLadoSeleccionado(lado)}
+                  className="flex-1 bg-white rounded-2xl border-2 border-gray-200 p-3 active:scale-[0.98] hover:border-rose-300 transition-all text-left"
+                >
+                  <div className="text-[9px] font-black uppercase tracking-wide text-center mb-2.5 text-gray-500">
+                    {lado === 'izq' ? 'Lado A' : 'Lado B'}
+                  </div>
+                  {FASES_BRACKET.map(f => {
+                    const ps = partidos.filter(p => p.fase === f.fase);
+                    const mid = Math.ceil(ps.length / 2);
+                    const side = lado === 'izq' ? ps.slice(0, mid) : ps.slice(mid);
+                    if (side.length === 0) return null;
+                    return (
+                      <div key={f.fase} className="mb-2">
+                        <div className="text-[7px] font-black uppercase text-gray-300 mb-0.5 tracking-wide">{f.label}</div>
+                        <div className="space-y-0.5">
+                          {side.map(p => {
+                            const fin = p.estado === 'Finalizado';
+                            const eqA = p.equipo_a;
+                            const eqB = p.equipo_b;
+                            return (
+                              <FixtureMiniTile
+                                key={p.id}
+                                eqA={eqA}
+                                eqB={eqB}
+                                scoreA={fin ? p.goles_a : undefined}
+                                scoreB={fin ? p.goles_b : undefined}
+                                finalizado={fin}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="text-center mt-2 text-[8px] font-black text-rose-800 uppercase tracking-wide">
+                    Ver detalle →
+                  </div>
+                </button>
+              ))}
             </div>
 
-            <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-1">
-              <span>{FASES_LLAVE.indexOf(faseActiva) > 0 ? `← ${FASES_TABS[FASES_LLAVE.indexOf(faseActiva) - 1]?.label}` : ''}</span>
-              <span>{FASES_LLAVE.indexOf(faseActiva) < FASES_LLAVE.length - 1 ? `${FASES_TABS[FASES_LLAVE.indexOf(faseActiva) + 1]?.label} →` : ''}</span>
-            </div>
-          </>
+            {(() => {
+              const finalPs = partidos.filter(p => p.fase === 'Final');
+              const tercerPs = partidos.filter(p => p.fase === 'Tercer Puesto');
+              if (finalPs.length === 0) return null;
+              return (
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 text-center mb-2">🏆 Final</div>
+                  <div className="max-w-sm mx-auto space-y-2">
+                    {finalPs.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
+                    {tercerPs.length > 0 && (
+                      <>
+                        <div className="text-center text-[8px] font-black text-gray-400 uppercase tracking-wide pt-1">🥉 Tercer puesto</div>
+                        {tercerPs.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function FixtureMiniTile({ eqA, eqB, scoreA, scoreB, finalizado }: any) {
+  const hasScore = finalizado && scoreA !== undefined && scoreB !== undefined;
+  return (
+    <div className={`flex items-center gap-1 px-1 py-0.5 rounded leading-none ${finalizado ? 'bg-green-50' : ''}`}>
+      <span className="w-5 text-center text-sm">{eqA?.bandera_url || '·'}</span>
+      <span className={`text-[8px] font-black tabular-nums flex-1 text-center ${hasScore ? 'text-rose-900' : 'text-gray-200'}`}>
+        {hasScore ? `${scoreA}-${scoreB}` : '-'}
+      </span>
+      <span className="w-5 text-center text-sm">{eqB?.bandera_url || '·'}</span>
     </div>
   );
 }

@@ -1,23 +1,14 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { MapPin } from 'lucide-react';
+import { MapPin, Trophy } from 'lucide-react';
 
 const LETRAS_GRUPOS = ['A','B','C','D','E','F','G','H','I','J','K','L'];
-const FASES_TABS = [
+const RONDAS = [
   { fase: '16vos de Final', label: '16vos' },
-  { fase: 'Octavos de Final', label: '8vos' },
-  { fase: 'Cuartos de Final', label: '4tos' },
-  { fase: 'Semifinal', label: 'Semi' },
-  { fase: 'Tercer Puesto', label: '3er P.' },
-  { fase: 'Final', label: 'Final' },
-];
-const FASES_LLAVE = FASES_TABS.map(f => f.fase);
-const FASES_BRACKET = [
-  { fase: '16vos de Final', label: '16vos' },
-  { fase: 'Octavos de Final', label: '8vos' },
-  { fase: 'Cuartos de Final', label: '4tos' },
-  { fase: 'Semifinal', label: 'Semi' },
+  { fase: 'Octavos de Final', label: 'Octavos' },
+  { fase: 'Cuartos de Final', label: 'Cuartos' },
+  { fase: 'Semifinal', label: 'Semifinal' },
 ];
 
 export default function Fixture() {
@@ -26,8 +17,6 @@ export default function Fixture() {
   const [cargando, setCargando] = useState(true);
   const [vista, setVista] = useState<'grupos' | 'llave'>('grupos');
   const [grupoActivo, setGrupoActivo] = useState('A');
-  const [faseActiva, setFaseActiva] = useState('16vos de Final');
-  const [ladoSeleccionado, setLadoSeleccionado] = useState<'izq' | 'der' | null>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   useEffect(() => {
@@ -37,7 +26,7 @@ export default function Fixture() {
         .from('partidos')
         .select(`
           id, fecha_hora, fase, estado, goles_a, goles_b, estadio, ciudad,
-          placeholder_a, placeholder_b, equipo_a_id, equipo_b_id,
+          codigo_partido, placeholder_a, placeholder_b, equipo_a_id, equipo_b_id,
           equipo_a:equipos!equipo_a_id(id, nombre, bandera_url, grupo),
           equipo_b:equipos!equipo_b_id(id, nombre, bandera_url, grupo)
         `)
@@ -49,9 +38,9 @@ export default function Fixture() {
     cargar();
   }, []);
 
-  const tabla = useMemo(() => {
+  const calcularTabla = (grupo: string) => {
     const stats: Record<string, any> = {};
-    equipos.filter(e => e.grupo === grupoActivo).forEach(e => {
+    equipos.filter(e => e.grupo === grupo).forEach(e => {
       stats[e.id] = { ...e, pj: 0, pts: 0, gd: 0, gf: 0 };
     });
     partidos.forEach(p => {
@@ -66,62 +55,66 @@ export default function Fixture() {
       }
     });
     return Object.values(stats).sort((a: any, b: any) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
-  }, [equipos, partidos, grupoActivo]);
+  };
 
-  const onTouchStart = (e: React.TouchEvent) => setTouchStartX(e.touches[0].clientX);
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null) return;
-    const diff = touchStartX - e.changedTouches[0].clientX;
-    if (Math.abs(diff) < 50) { setTouchStartX(null); return; }
-    if (vista === 'grupos') {
-      const idx = LETRAS_GRUPOS.indexOf(grupoActivo);
-      if (diff > 0 && idx < LETRAS_GRUPOS.length - 1) setGrupoActivo(LETRAS_GRUPOS[idx + 1]);
-      else if (diff < 0 && idx > 0) setGrupoActivo(LETRAS_GRUPOS[idx - 1]);
-    } else {
-      const idx = FASES_LLAVE.indexOf(faseActiva);
-      if (diff > 0 && idx < FASES_LLAVE.length - 1) setFaseActiva(FASES_LLAVE[idx + 1]);
-      else if (diff < 0 && idx > 0) setFaseActiva(FASES_LLAVE[idx - 1]);
-    }
-    setTouchStartX(null);
+  const campeon = useMemo(() => {
+    const final = partidos.find(p => p.fase === 'Final' && p.estado === 'Finalizado');
+    if (!final) return null;
+    return final.goles_a > final.goles_b ? final.equipo_a : final.equipo_b;
+  }, [partidos]);
+
+  const progreso = useMemo(() => {
+    const elim = partidos.filter(p => p.fase !== 'Fase de Grupos');
+    const total = elim.length;
+    const completos = elim.filter(p => p.estado === 'Finalizado').length;
+    return { total, completos, pct: total === 0 ? 0 : Math.round((completos / total) * 100) };
+  }, [partidos]);
+
+  const splitFase = (fase: string) => {
+    const ps = partidos.filter(p => p.fase === fase);
+    const mitad = Math.ceil(ps.length / 2);
+    return { izq: ps.slice(0, mitad), der: ps.slice(mitad) };
+  };
+
+  const scrollToFinal = () => {
+    document.getElementById('fixture-final')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   if (cargando) {
     return <div className="p-10 text-center font-bold text-gray-700">Cargando fixture oficial...</div>;
   }
 
-  const partidosGrupo = partidos.filter(p => p.fase === 'Fase de Grupos' && p.equipo_a?.grupo === grupoActivo);
-  const partidosFase = partidos.filter(p => p.fase === faseActiva);
+  // ── VISTA: GRUPOS ────────────────────────────────────────────────────────────
+  if (vista === 'grupos') {
+    const tabla = calcularTabla(grupoActivo);
+    const partidosGrupo = partidos.filter(p => p.fase === 'Fase de Grupos' && p.equipo_a?.grupo === grupoActivo);
+    const cambiarGrupo = (delta: number) => {
+      const idx = LETRAS_GRUPOS.indexOf(grupoActivo);
+      const nuevo = idx + delta;
+      if (nuevo >= 0 && nuevo < LETRAS_GRUPOS.length) setGrupoActivo(LETRAS_GRUPOS[nuevo]);
+    };
 
-  return (
-    <div className="min-h-screen bg-gray-100 pb-24">
-      {/* Header */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-gray-200">
-        <div className="px-4 pt-3 pb-2 max-w-2xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em]">Prode 2026</div>
-              <h1 className="text-[15px] font-black text-gray-900 leading-tight">
-                {vista === 'grupos' ? 'Fase de grupos' : ladoSeleccionado ? (ladoSeleccionado === 'izq' ? 'Lado A' : 'Lado B') : 'Llave eliminatoria'}
-              </h1>
-            </div>
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-              <button
-                onClick={() => setVista('grupos')}
-                className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${vista === 'grupos' ? 'bg-white text-rose-900 shadow' : 'text-gray-500'}`}
-              >
-                Grupos
-              </button>
-              <button
-                onClick={() => setVista('llave')}
-                className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${vista === 'llave' ? 'bg-white text-rose-900 shadow' : 'text-gray-500'}`}
-              >
-                Llave
-              </button>
+    return (
+      <div className="min-h-screen bg-[#faf7f5] pb-24">
+        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-gray-200">
+          <div className="px-4 pt-3 pb-2 max-w-2xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em]">Prode 2026</div>
+                <h1 className="text-[15px] font-black text-gray-900 leading-tight">Fase de grupos</h1>
+              </div>
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                <button
+                  onClick={() => setVista('grupos')}
+                  className="px-3 py-1.5 rounded-md text-[11px] font-bold bg-white text-rose-900 shadow"
+                >Grupos</button>
+                <button
+                  onClick={() => setVista('llave')}
+                  className="px-3 py-1.5 rounded-md text-[11px] font-bold text-gray-500"
+                >Llave</button>
+              </div>
             </div>
           </div>
-        </div>
-
-        {vista === 'grupos' ? (
           <div className="px-2 pb-2 flex gap-1 overflow-x-auto no-scrollbar max-w-2xl mx-auto">
             {LETRAS_GRUPOS.map(g => {
               const ps = partidos.filter(p => p.fase === 'Fase de Grupos' && p.equipo_a?.grupo === g);
@@ -139,198 +132,249 @@ export default function Fixture() {
               );
             })}
           </div>
-        ) : null}
+        </div>
+
+        <div
+          className="p-4 max-w-2xl mx-auto space-y-4"
+          onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
+          onTouchEnd={e => {
+            if (touchStartX === null) return;
+            const diff = touchStartX - e.changedTouches[0].clientX;
+            if (Math.abs(diff) >= 50) cambiarGrupo(diff > 0 ? 1 : -1);
+            setTouchStartX(null);
+          }}
+        >
+          <div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-800 text-white text-[10px] uppercase tracking-wide">
+                <tr>
+                  <th className="px-3 py-2 text-left">Grupo {grupoActivo}</th>
+                  <th className="px-1 py-2 text-center">PTS</th>
+                  <th className="px-1 py-2 text-center">PJ</th>
+                  <th className="px-1 py-2 text-center">DIF</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tabla.map((eq: any, i) => (
+                  <tr key={eq.id} className={`border-b border-gray-100 ${i < 2 ? 'bg-green-50' : i === 2 ? 'bg-rose-50' : ''}`}>
+                    <td className="px-3 py-2 font-bold text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
+                        <span className="text-xl">{eq.bandera_url}</span>
+                        <span>{eq.nombre}</span>
+                      </div>
+                    </td>
+                    <td className="text-center font-black text-amber-600">{eq.pts}</td>
+                    <td className="text-center font-bold text-gray-500">{eq.pj}</td>
+                    <td className="text-center font-bold text-gray-600">{eq.gd >= 0 ? '+' : ''}{eq.gd}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="bg-gray-50 p-2 text-[10px] text-gray-500 text-center font-medium border-t">
+              Los 2 primeros y los 8 mejores terceros avanzan.
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {partidosGrupo.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-1">
+            <span>{LETRAS_GRUPOS.indexOf(grupoActivo) > 0 ? `← Grupo ${LETRAS_GRUPOS[LETRAS_GRUPOS.indexOf(grupoActivo) - 1]}` : ''}</span>
+            <span>{LETRAS_GRUPOS.indexOf(grupoActivo) < LETRAS_GRUPOS.length - 1 ? `Grupo ${LETRAS_GRUPOS[LETRAS_GRUPOS.indexOf(grupoActivo) + 1]} →` : ''}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── VISTA: LLAVE ─────────────────────────────────────────────────────────────
+  const finalPartidos = partidos.filter(p => p.fase === 'Final');
+  const tercerPuestoPartidos = partidos.filter(p => p.fase === 'Tercer Puesto');
+
+  return (
+    <div className="min-h-screen bg-[#faf7f5] pb-24">
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-gray-200">
+        <div className="px-4 pt-3 pb-2.5 max-w-2xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[9px] font-black text-rose-800 uppercase tracking-[0.22em]">Prode 2026</div>
+              <h1 className="text-[15px] font-black text-gray-900 leading-tight">Camino al trofeo</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                <button
+                  onClick={() => setVista('grupos')}
+                  className="px-3 py-1.5 rounded-md text-[11px] font-bold text-gray-500"
+                >Grupos</button>
+                <button
+                  onClick={() => setVista('llave')}
+                  className="px-3 py-1.5 rounded-md text-[11px] font-bold bg-white text-rose-900 shadow"
+                >Llave</button>
+              </div>
+              <button onClick={scrollToFinal} className="h-8 px-2 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-black active:scale-95">
+                🏆 Final
+              </button>
+            </div>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-green-500 to-amber-500 transition-all duration-500" style={{ width: `${progreso.pct}%` }}></div>
+            </div>
+            <div className="text-[10px] font-bold text-gray-500 tabular-nums">{progreso.completos}/{progreso.total} jugados</div>
+          </div>
+        </div>
       </div>
 
-      <div
-        className="p-4 max-w-2xl mx-auto space-y-4"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        {vista === 'grupos' ? (
-          <>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-800 text-white text-[10px] uppercase tracking-wide">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Grupo {grupoActivo}</th>
-                    <th className="px-1 py-2 text-center">PTS</th>
-                    <th className="px-1 py-2 text-center">PJ</th>
-                    <th className="px-1 py-2 text-center">DIF</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tabla.map((eq: any, i) => (
-                    <tr key={eq.id} className={`border-b border-gray-100 ${i < 2 ? 'bg-green-50' : i === 2 ? 'bg-rose-50' : ''}`}>
-                      <td className="px-3 py-2 font-bold text-gray-900">
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400 w-4 text-right">{i + 1}.</span>
-                          <span className="text-xl">{eq.bandera_url}</span>
-                          <span>{eq.nombre}</span>
-                        </div>
-                      </td>
-                      <td className="text-center font-black text-amber-600">{eq.pts}</td>
-                      <td className="text-center font-bold text-gray-500">{eq.pj}</td>
-                      <td className="text-center font-bold text-gray-600">{eq.gd >= 0 ? '+' : ''}{eq.gd}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="bg-gray-50 p-2 text-[10px] text-gray-500 text-center font-medium border-t">
-                Los 2 primeros y los 8 mejores terceros avanzan.
+      <div className="px-3 py-4 max-w-2xl mx-auto space-y-2">
+        <div className="flex items-center gap-2 px-1">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-gray-300"></div>
+          <div className="text-[9px] font-black uppercase tracking-[0.22em] text-gray-400">Llave superior</div>
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-gray-300"></div>
+        </div>
+
+        {RONDAS.map(({ fase, label }) => (
+          <FixtureRondaFila key={`top-${fase}`} label={label} partidos={splitFase(fase).izq} />
+        ))}
+
+        <div className="flex justify-center py-1">
+          <div className="w-0.5 h-6 bg-gradient-to-b from-gray-300 to-amber-400"></div>
+        </div>
+
+        <div id="fixture-final">
+          <div className={`relative overflow-hidden rounded-2xl border-2 ${
+            finalPartidos[0]?.estado === 'Finalizado'
+              ? 'border-amber-300 bg-gradient-to-b from-amber-50 via-white to-amber-50'
+              : 'border-amber-200 bg-white'
+          } p-4 shadow-lg`}>
+            <div className="text-center mb-3">
+              <div className="text-[9px] font-black uppercase tracking-[0.28em] text-amber-700">✦ La gran final ✦</div>
+            </div>
+            {finalPartidos.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
+            {campeon ? (
+              <div className="mt-4 text-center">
+                <Trophy size={48} className="mx-auto text-amber-500 mb-1" />
+                <div className="text-[9px] font-black uppercase tracking-[0.25em] text-amber-700">Campeón del mundo</div>
+                <div className="mt-1 inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-300 rounded-full">
+                  <span className="text-2xl">{campeon.bandera_url}</span>
+                  <span className="text-base font-black text-gray-900">{campeon.nombre}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 text-center text-[10px] text-gray-400 font-medium">
+                El campeón se conocerá en la final
+              </div>
+            )}
+          </div>
+
+          {tercerPuestoPartidos.length > 0 && (
+            <div className="mt-3">
+              <div className="text-center text-[9px] font-black uppercase tracking-[0.22em] text-gray-500 mb-1.5">🥉 Tercer puesto</div>
+              <div className="max-w-sm mx-auto">
+                {tercerPuestoPartidos.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
               </div>
             </div>
-            <div className="space-y-2">
-              {partidosGrupo.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
-            </div>
-            <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-1">
-              <span>{LETRAS_GRUPOS.indexOf(grupoActivo) > 0 ? `← Grupo ${LETRAS_GRUPOS[LETRAS_GRUPOS.indexOf(grupoActivo) - 1]}` : ''}</span>
-              <span>{LETRAS_GRUPOS.indexOf(grupoActivo) < LETRAS_GRUPOS.length - 1 ? `Grupo ${LETRAS_GRUPOS[LETRAS_GRUPOS.indexOf(grupoActivo) + 1]} →` : ''}</span>
-            </div>
-          </>
-        ) : ladoSeleccionado ? (
-          // ── Zoomed: un lado ───────────────────────────────────────────────
-          <div className="space-y-4">
-            <button onClick={() => setLadoSeleccionado(null)} className="text-[11px] font-bold text-gray-500 hover:text-rose-800 transition">
-              ← Bracket completo
-            </button>
-            {FASES_BRACKET.map(f => {
-              const ps = partidos.filter(p => p.fase === f.fase);
-              const mid = Math.ceil(ps.length / 2);
-              const side = ladoSeleccionado === 'izq' ? ps.slice(0, mid) : ps.slice(mid);
-              if (side.length === 0) return null;
-              return (
-                <div key={f.fase}>
-                  <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">{f.label}</div>
-                  <div className="space-y-2">
-                    {side.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          // ── Overview: bracket completo ────────────────────────────────────
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              {(['izq', 'der'] as const).map(lado => (
-                <button
-                  key={lado}
-                  onClick={() => setLadoSeleccionado(lado)}
-                  className="flex-1 bg-white rounded-2xl border-2 border-gray-200 p-3 active:scale-[0.98] hover:border-rose-300 transition-all text-left"
-                >
-                  <div className="text-[9px] font-black uppercase tracking-wide text-center mb-2.5 text-gray-500">
-                    {lado === 'izq' ? 'Lado A' : 'Lado B'}
-                  </div>
-                  {FASES_BRACKET.map(f => {
-                    const ps = partidos.filter(p => p.fase === f.fase);
-                    const mid = Math.ceil(ps.length / 2);
-                    const side = lado === 'izq' ? ps.slice(0, mid) : ps.slice(mid);
-                    if (side.length === 0) return null;
-                    return (
-                      <div key={f.fase} className="mb-2">
-                        <div className="text-[7px] font-black uppercase text-gray-300 mb-0.5 tracking-wide">{f.label}</div>
-                        <div className="space-y-0.5">
-                          {side.map(p => {
-                            const fin = p.estado === 'Finalizado';
-                            const eqA = p.equipo_a;
-                            const eqB = p.equipo_b;
-                            return (
-                              <FixtureMiniTile
-                                key={p.id}
-                                eqA={eqA}
-                                eqB={eqB}
-                                scoreA={fin ? p.goles_a : undefined}
-                                scoreB={fin ? p.goles_b : undefined}
-                                finalizado={fin}
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div className="text-center mt-2 text-[8px] font-black text-rose-800 uppercase tracking-wide">
-                    Ver detalle →
-                  </div>
-                </button>
-              ))}
-            </div>
+          )}
+        </div>
 
-            {(() => {
-              const finalPs = partidos.filter(p => p.fase === 'Final');
-              const tercerPs = partidos.filter(p => p.fase === 'Tercer Puesto');
-              if (finalPs.length === 0) return null;
-              return (
-                <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 text-center mb-2">🏆 Final</div>
-                  <div className="max-w-sm mx-auto space-y-2">
-                    {finalPs.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
-                    {tercerPs.length > 0 && (
-                      <>
-                        <div className="text-center text-[8px] font-black text-gray-400 uppercase tracking-wide pt-1">🥉 Tercer puesto</div>
-                        {tercerPs.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
+        <div className="flex justify-center py-1">
+          <div className="w-0.5 h-6 bg-gradient-to-t from-gray-300 to-amber-400"></div>
+        </div>
+
+        <div className="flex items-center gap-2 px-1 pt-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-gray-300"></div>
+          <div className="text-[9px] font-black uppercase tracking-[0.22em] text-gray-400">Llave inferior</div>
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-gray-300"></div>
+        </div>
+
+        {[...RONDAS].reverse().map(({ fase, label }) => (
+          <FixtureRondaFila key={`bot-${fase}`} label={label} partidos={splitFase(fase).der} />
+        ))}
       </div>
     </div>
   );
 }
 
-function FixtureMiniTile({ eqA, eqB, scoreA, scoreB, finalizado }: any) {
-  const hasScore = finalizado && scoreA !== undefined && scoreB !== undefined;
+// ── Sub-componentes ──────────────────────────────────────────────────────────
+
+function FixtureRondaFila({ label, partidos }: { label: string; partidos: any[] }) {
+  const [expandido, setExpandido] = useState(true);
+  const total = partidos.length;
+  const done = partidos.filter(p => p.estado === 'Finalizado').length;
+
   return (
-    <div className={`flex items-center gap-1 px-1 py-0.5 rounded leading-none ${finalizado ? 'bg-green-50' : ''}`}>
-      <span className="w-5 text-center text-sm">{eqA?.bandera_url || '·'}</span>
-      <span className={`text-[8px] font-black tabular-nums flex-1 text-center ${hasScore ? 'text-rose-900' : 'text-gray-200'}`}>
-        {hasScore ? `${scoreA}-${scoreB}` : '-'}
-      </span>
-      <span className="w-5 text-center text-sm">{eqB?.bandera_url || '·'}</span>
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <button onClick={() => setExpandido(e => !e)} className="w-full px-3 py-2 flex items-center justify-between gap-2 active:bg-gray-50">
+        <div className="flex items-center gap-2">
+          <div className={`w-1 h-4 rounded-full ${done === total && total > 0 ? 'bg-green-600' : done > 0 ? 'bg-amber-400' : 'bg-gray-200'}`}></div>
+          <span className="text-[11px] font-black text-gray-800 uppercase tracking-wider">{label}</span>
+          <span className="text-[9px] font-bold text-gray-400 tabular-nums">{done}/{total}</span>
+        </div>
+        <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${expandido ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {expandido ? (
+        <div className="p-2 pt-0 space-y-2">
+          {partidos.map(p => <FixtureMatchCard key={p.id} partido={p} />)}
+        </div>
+      ) : (
+        <div className="px-3 pb-2 flex gap-1 overflow-x-auto no-scrollbar">
+          {partidos.map(p => {
+            const fin = p.estado === 'Finalizado';
+            return (
+              <div key={p.id} className={`flex-shrink-0 h-7 px-1.5 rounded flex items-center gap-1 text-[10px] font-black ${
+                fin ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500 border border-dashed border-gray-200'
+              }`}>
+                <span>{p.equipo_a?.bandera_url || '·'}</span>
+                <span className="text-gray-400 text-[9px]">vs</span>
+                <span>{p.equipo_b?.bandera_url || '·'}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 function FixtureMatchCard({ partido }: { partido: any }) {
-  const finalizado = partido.estado === 'Finalizado';
+  const fin = partido.estado === 'Finalizado';
   const eqA = partido.equipo_a;
   const eqB = partido.equipo_b;
   const labelA = eqA?.nombre || partido.placeholder_a || '?';
   const labelB = eqB?.nombre || partido.placeholder_b || '?';
-  const draw = finalizado && partido.goles_a === partido.goles_b;
-  const winA = finalizado && partido.goles_a > partido.goles_b;
-  const winB = finalizado && partido.goles_b > partido.goles_a;
+  const draw = fin && partido.goles_a === partido.goles_b;
+  const winA = fin && partido.goles_a > partido.goles_b;
+  const winB = fin && partido.goles_b > partido.goles_a;
 
   const fechaObj = new Date(partido.fecha_hora);
   const hora = fechaObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
   const fechaStr = fechaObj.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
-    <div className={`bg-white border rounded-xl shadow-sm overflow-hidden ${finalizado ? 'border-gray-200' : 'border-dashed border-gray-200'}`}>
+    <div className={`bg-white border rounded-xl shadow-sm overflow-hidden ${fin ? 'border-gray-200' : 'border-dashed border-gray-200'}`}>
       <div className="px-3 py-1.5 flex items-center justify-between border-b border-gray-100">
         <span className="text-[10px] font-bold text-gray-400 capitalize">{fechaStr.replace(/\./g, '')} · {hora}</span>
         <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
-          finalizado ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-        }`}>{finalizado ? 'Final' : 'Pendiente'}</span>
+          fin ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+        }`}>{fin ? 'Final' : 'Pendiente'}</span>
       </div>
       <div className="flex items-center px-3 py-2.5 gap-2">
-        <div className={`flex-1 flex items-center justify-end gap-2 min-w-0 transition-opacity ${finalizado && !draw && !winA ? 'opacity-40' : ''}`}>
+        <div className={`flex-1 flex items-center justify-end gap-2 min-w-0 transition-opacity ${fin && !draw && !winA ? 'opacity-40' : ''}`}>
           <span className="text-sm font-bold truncate text-right text-gray-900">{labelA}</span>
           <span className="text-xl flex-shrink-0">{eqA?.bandera_url || '·'}</span>
         </div>
         <div className="flex-shrink-0 w-16 text-center">
-          {finalizado ? (
+          {fin ? (
             <span className="text-base font-black text-rose-900 tabular-nums">{partido.goles_a} - {partido.goles_b}</span>
           ) : (
             <span className="text-xs font-bold text-gray-300">vs</span>
           )}
         </div>
-        <div className={`flex-1 flex items-center gap-2 min-w-0 transition-opacity ${finalizado && !draw && !winB ? 'opacity-40' : ''}`}>
+        <div className={`flex-1 flex items-center gap-2 min-w-0 transition-opacity ${fin && !draw && !winB ? 'opacity-40' : ''}`}>
           <span className="text-xl flex-shrink-0">{eqB?.bandera_url || '·'}</span>
           <span className="text-sm font-bold truncate text-gray-900">{labelB}</span>
         </div>
